@@ -11,16 +11,25 @@ def _nav_items_block() -> str:
     return source[start:end]
 
 
-def test_sidebar_top_level_nav_keeps_dashboard_chatgpt_and_settings():
+def test_sidebar_top_level_nav_keeps_only_chatgpt_and_settings():
     block = _nav_items_block()
 
-    assert block.count("path:") == 3
-    assert 'path: "/"' in block
-    assert 'labelKey: "nav.dashboard"' in block
+    # 总览已下线，只保留 chatgpt free 注册页与设置。
+    assert block.count("path:") == 2
+    assert 'labelKey: "nav.dashboard"' not in block
     assert 'path: "/accounts/chatgpt"' in block
     assert 'label: "chatgpt free"' in block
     assert 'path: "/settings"' in block
     assert 'labelKey: "nav.settings"' in block
+
+
+def test_root_route_redirects_to_registration():
+    source = APP_TSX.read_text(encoding="utf-8")
+
+    # 移除总览后，根路径应重定向到注册页，而不是渲染 Dashboard。
+    assert "pages/Dashboard" not in source
+    assert "<Dashboard />" not in source
+    assert '<Route path="/" element={<Navigate to="/accounts/chatgpt" replace />} />' in source
 
 
 def test_sidebar_hides_accounts_menu_and_other_business_links():

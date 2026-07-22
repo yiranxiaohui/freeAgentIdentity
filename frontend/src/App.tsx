@@ -1,5 +1,6 @@
 import {
   BrowserRouter,
+  Navigate,
   NavLink,
   Route,
   Routes,
@@ -9,13 +10,11 @@ import { useEffect, useState } from "react";
 import { getAuthToken, setAuthToken, API, cn } from "@/lib/utils";
 import { I18nProvider, useI18n } from "@/lib/i18n-context";
 import type { TranslationKey } from "@/lib/i18n";
-import Dashboard from "@/pages/Dashboard";
 import Accounts from "@/pages/Accounts";
 import SettingsPage from "@/pages/SettingsPage";
 import UpdateBanner from "@/components/UpdateBanner";
 import WelcomeDialog from "@/components/WelcomeDialog";
 import {
-  LayoutDashboard,
   Moon,
   Settings as SettingsIcon,
   Sun,
@@ -44,7 +43,6 @@ const SETTINGS_NAV_ITEMS: { labelKey: TranslationKey; hash: string }[] = [
 ];
 
 const NAV_ITEMS: NavItem[] = [
-  { path: "/", labelKey: "nav.dashboard", icon: LayoutDashboard, exact: true },
   { path: "/accounts/chatgpt", label: "chatgpt free", icon: Users },
   { path: "/settings", labelKey: "nav.settings", icon: SettingsIcon },
 ];
@@ -248,12 +246,13 @@ function Shell({
         <div className="mx-auto max-w-6xl px-6 py-6 lg:px-8">
           <UpdateBanner />
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<Navigate to="/accounts/chatgpt" replace />} />
             <Route path="/accounts/chatgpt" element={<Accounts />} />
             <Route
               path="/settings"
               element={<SettingsPage theme={theme} setTheme={setTheme} />}
             />
+            <Route path="*" element={<Navigate to="/accounts/chatgpt" replace />} />
           </Routes>
         </div>
       </main>

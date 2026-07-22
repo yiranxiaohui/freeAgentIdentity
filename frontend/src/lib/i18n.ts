@@ -47,7 +47,6 @@ const ZH_MESSAGES = {
   "common.ready": "就绪",
   "common.standby": "待命",
 
-  "nav.dashboard": "总览",
   "nav.settings": "设置",
   "nav.settings.general": "通用",
   "nav.settings.mailbox": "邮箱服务",
@@ -431,7 +430,6 @@ const EN_MESSAGES: Record<TranslationKey, string> = {
   "common.ready": "Ready",
   "common.standby": "Standby",
 
-  "nav.dashboard": "Dashboard",
   "nav.settings": "Settings",
   "nav.settings.general": "General",
   "nav.settings.mailbox": "Mailbox",
