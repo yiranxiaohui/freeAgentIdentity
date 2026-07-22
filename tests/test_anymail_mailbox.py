@@ -98,12 +98,12 @@ def test_get_email_retries_on_409_conflict():
     assert sum(1 for c in session.calls if c[0] == "POST") == 2
 
 
-def test_wait_for_code_returns_server_extracted_code():
+def test_wait_for_code_extracts_client_side_without_server_regex():
     session = FakeSession()
     session.post_queue = [{"account": {"id": "a", "email": "u_a@mail.example.com"}}]
     session.get_queue = [
         {"emails": []},
-        {"emails": [{"id": "m1", "code": "482615", "text_body": "code 482615"}]},
+        {"emails": [{"id": "m1", "text_body": "Your verification code is 482615"}]},
     ]
     pool = _pool(session)
     account = pool.get_email()
@@ -111,14 +111,33 @@ def test_wait_for_code_returns_server_extracted_code():
     assert pool.wait_for_code(account, timeout=1) == "482615"
     latest_calls = [c for c in session.calls if "emails/latest" in c[1]]
     assert latest_calls[0][2]["params"]["to"] == "u_a@mail.example.com"
-    assert latest_calls[0][2]["params"]["code_regex"] == r"\d{6}"
+    # 客户端提码：不再把 code_regex 交给服务端。
+    assert "code_regex" not in latest_calls[0][2]["params"]
+
+
+def test_wait_for_code_ignores_html_hex_color_false_positive():
+    # 回归：OpenAI 邮件 HTML 里的 #202123 色值曾被朴素 \d{6} 误当验证码。
+    session = FakeSession()
+    session.post_queue = [{"account": {"id": "a", "email": "u_a@mail.example.com"}}]
+    session.get_queue = [
+        {"emails": [{
+            "id": "m1",
+            "text_body": "Your ChatGPT verification code is 715028.",
+            "html_body": '<div style="background:#202123;color:#343541">'
+                         '<h1>715028</h1></div>',
+        }]},
+    ]
+    pool = _pool(session)
+    account = pool.get_email()
+
+    assert pool.wait_for_code(account, timeout=1) == "715028"
 
 
 def test_wait_for_code_skips_baseline_before_ids():
     session = FakeSession()
     session.post_queue = [{"account": {"id": "a", "email": "u_a@mail.example.com"}}]
     # Same email present at baseline and during polling — must be ignored.
-    session.get_queue = [{"emails": [{"id": "old", "code": "111111"}]}]
+    session.get_queue = [{"emails": [{"id": "old", "text_body": "code 111111"}]}]
     pool = _pool(session)
     account = pool.get_email()
     before = pool.get_current_ids(account)
@@ -130,7 +149,7 @@ def test_wait_for_code_skips_baseline_before_ids():
 def test_delete_after_use_recycles_mailbox():
     session = FakeSession()
     session.post_queue = [{"account": {"id": "acc9", "email": "u_a@mail.example.com"}}]
-    session.get_queue = [{"emails": [{"id": "m1", "code": "999999"}]}]
+    session.get_queue = [{"emails": [{"id": "m1", "text_body": "code: 999999"}]}]
     pool = _pool(session, delete_after_use=True)
     account = pool.get_email()
 

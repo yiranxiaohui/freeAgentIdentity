@@ -159,10 +159,9 @@ _BUILTIN_DEFINITIONS: list[dict] = [
             {
                 "key": "anymail_code_pattern",
                 "label": "验证码正则",
-                "placeholder": "\\d{6}",
-                "default_value": "\\d{6}",
+                "placeholder": "留空=智能提取（推荐）",
                 "category": "connection",
-                "hint": "交给服务端 code_regex 提取；有捕获组则取第 1 组。可被注册任务的 code_pattern 覆盖。",
+                "hint": "留空时用内置智能提取（客户端，自动跳过 #202123 这类颜色值、剥离 URL/邮箱、优先带标签的码）。仅在智能提取失效时才填自定义正则；有捕获组则取第 1 组。",
             },
             {
                 "key": "anymail_expires_minutes",

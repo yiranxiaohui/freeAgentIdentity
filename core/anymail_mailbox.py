@@ -30,10 +30,6 @@ from core.base_mailbox import BaseMailbox, MailboxAccount, _extract_verification
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CODE_PATTERN = r"\d{6}"
-_LOCAL_PART_RE = re.compile(r"^[A-Za-z0-9]+$")
-
-
 def _truthy(value: object) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on", "y"}
 
@@ -230,6 +226,27 @@ class AnyMailPool(BaseMailbox):
         ]
         return "\n".join(part for part in parts if part)
 
+    @staticmethod
+    def _extract_code_from_email(email: dict, code_pattern: str | None) -> str:
+        """客户端提取验证码。
+
+        不依赖 AnyMail 服务端的 ``code_regex`` —— Go RE2 不支持 lookbehind，
+        朴素的 ``\\d{6}`` 会把 HTML 里 ``#202123`` 这类十六进制色值(OpenAI 邮件
+        模板常见)误当成验证码。复用 api_mailbox 那套更稳的提取逻辑，并优先
+        纯文本、其次主题、最后 HTML。
+        """
+        from core.api_mailbox import ApiMailboxPool
+
+        pattern = code_pattern or None
+        for body in (email.get("text_body"), email.get("subject"), email.get("html_body")):
+            text = str(body or "").strip()
+            if not text:
+                continue
+            code = ApiMailboxPool._extract_code(None, text, pattern)
+            if code:
+                return code
+        return ""
+
     @classmethod
     def _signature(cls, email: dict) -> str:
         for key in ("id", "message_id"):
@@ -271,18 +288,19 @@ class AnyMailPool(BaseMailbox):
         code_pattern: str | None = None,
     ) -> str:
         del keyword  # server filters by the requested mailbox directly
-        regex = str(code_pattern or self.code_pattern or DEFAULT_CODE_PATTERN)
+        pattern = code_pattern or self.code_pattern or None
         seen = set(before_ids or set())
         deadline = time.monotonic() + timeout
         last_error = ""
         while time.monotonic() < deadline:
             try:
-                emails = self._fetch_latest(account, with_code_regex=regex)
+                # 取原始邮件后在客户端提码（见 _extract_code_from_email 说明）。
+                emails = self._fetch_latest(account, with_code_regex=None)
                 for email in emails:
                     signature = self._signature(email)
                     if signature in seen:
                         continue
-                    code = str(email.get("code") or "").strip()
+                    code = self._extract_code_from_email(email, pattern)
                     if code:
                         self._maybe_delete(account)
                         return code
