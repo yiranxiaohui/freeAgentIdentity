@@ -558,6 +558,17 @@ def execute_task(task_id: str) -> None:
     handler(payload, logger)
 
 
+def _parse_proxy_pool_text(text: str) -> list[str]:
+    """把「通用设置 → 代理池」文本解析成代理列表，一行一个，忽略空行与注释。"""
+    proxies: list[str] = []
+    for raw_line in str(text or "").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or line.startswith("//"):
+            continue
+        proxies.append(line)
+    return proxies
+
+
 def _resolve_registration_proxy_for_platform(
     platform_name: str,
     *,
@@ -582,11 +593,33 @@ def _execute_register_task(payload: dict[str, Any], logger: TaskLogger) -> None:
     password = payload.get("password") or None
     explicit_proxy = str(payload.get("proxy") or "").strip() or None
     extra = dict(payload.get("extra") or {})
-    resolved_proxy = _resolve_registration_proxy_for_platform(
-        platform_name,
-        explicit_proxy=explicit_proxy,
-        proxy_getter=proxy_pool.get_next,
-    )
+
+    # 向导填了代理就用手填的；留空则从「通用设置 → 代理池」按账号轮流取，
+    # 不用每次手动填。池也为空时回退到平台默认（ChatGPT = 本地直连）。
+    proxy_pool_list: list[str] = []
+    if not explicit_proxy:
+        try:
+            from core.config_store import config_store
+
+            proxy_pool_list = _parse_proxy_pool_text(config_store.get("proxy_pool_text", ""))
+        except Exception:
+            proxy_pool_list = []
+
+    def _resolve_proxy_for(index: int) -> str | None:
+        if explicit_proxy:
+            return explicit_proxy
+        if proxy_pool_list:
+            return proxy_pool_list[index % len(proxy_pool_list)]
+        return _resolve_registration_proxy_for_platform(
+            platform_name,
+            explicit_proxy=None,
+            proxy_getter=proxy_pool.get_next,
+        )
+
+    if proxy_pool_list:
+        logger.log(f"代理池已加载 {len(proxy_pool_list)} 个代理，按账号轮流分配")
+    # 共享邮箱用第 0 个代理（邮箱 API 一般与出口地区无关）。
+    resolved_proxy = _resolve_proxy_for(0)
 
     logger.set_progress(0, count)
     try:
@@ -621,6 +654,7 @@ def _execute_register_task(payload: dict[str, Any], logger: TaskLogger) -> None:
         if logger.is_cancel_requested():
             return "__cancel_requested__"
         logger.set_subtask(f"worker_{index + 1}", f"Worker {index + 1}")
+        resolved_proxy = _resolve_proxy_for(index)
         try:
             platform = _build_platform_instance(
                 platform_name,

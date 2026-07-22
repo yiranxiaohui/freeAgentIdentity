@@ -247,6 +247,24 @@ function GeneralTab({
         </div>
       </SettingGroup>
 
+      <div className="border-t border-[var(--border)]" />
+
+      <SettingGroup
+        title={t("settings.proxyPool.title")}
+        desc={t("settings.proxyPool.desc")}
+      >
+        <textarea
+          value={form.proxy_pool_text || ""}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, proxy_pool_text: e.target.value }))
+          }
+          rows={5}
+          spellCheck={false}
+          placeholder={"socks5h://user:pass@host:port\nhttp://host:port"}
+          className="control-surface w-full resize-y font-mono text-xs"
+        />
+      </SettingGroup>
+
       <Button onClick={save} disabled={saving} className="w-full">
         <Save className="mr-2 h-4 w-4" />
         {saved
