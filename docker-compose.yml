@@ -1,17 +1,56 @@
+# 生产部署 compose —— 使用 GHCR 预构建镜像，线上只 pull 不 build。
+#
+# 首次部署：
+#   1. cp .env.example .env  并至少填 APP_PASSWORD（公网必填）
+#   2. docker login ghcr.io   （镜像若为 private，用 GitHub PAT 登录）
+#   3. docker compose up -d
+#
+# 升级版本：改 .env 里的 IMAGE_TAG（或保持 latest）后
+#   docker compose pull && docker compose up -d
+#
+# 本地开发构建请用 docker-compose.dev.yml（把本文件的 image 换成 build: .）。
+
 services:
   app:
-    build: .
-    ports:
-      - "8000:8000"   # FastAPI / Web UI
-      - "6080:6080"   # noVNC (headed 浏览器预览)
-      - "8889:8889"   # Turnstile Solver
+    image: ghcr.io/yiranxiaohui/freeagentidentity:${IMAGE_TAG:-latest}
+    container_name: free-agent-identity
+    restart: unless-stopped
+    init: true                       # 收编 Xvfb/x11vnc/websockify 等后台子进程，避免僵尸进程
+    shm_size: "1gb"                  # Chromium 默认 /dev/shm 只有 64MB，会随机崩溃，必须放大
+
+    env_file:
+      - .env
     environment:
       - DISPLAY=:99
       - ACCOUNT_MANAGER_DATABASE_URL=sqlite:////app/data/account_manager.db
-      # 可选：设置访问密码，不设置则无密码保护
-      # - APP_PASSWORD=changeme
-      # 可选：设置 VNC 密码
-      # - VNC_PASSWORD=changeme
+      # APP_PASSWORD / VNC_PASSWORD 等敏感项从 .env 读取，不写在这里
+
+    ports:
+      # 只绑本地回环，由前置反代（1Panel openresty / nginx）转发 + 上 TLS。
+      # 若确实要直接公网访问，把 127.0.0.1: 去掉，但务必已设 APP_PASSWORD。
+      - "127.0.0.1:8000:8000"        # FastAPI / Web UI
+      - "127.0.0.1:6080:6080"        # noVNC（headed 浏览器预览，可选，仅本机/SSH 隧道）
+      # 8889 Turnstile Solver 为容器内部自用，不对外暴露
+
     volumes:
-      - ./data:/app/data   # 持久化 SQLite 数据库
-    restart: unless-stopped
+      - ./data:/app/data             # 持久化 SQLite 数据库与运行状态
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+    logging:                         # 限制日志体积，防止撑爆磁盘
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    deploy:
+      resources:
+        limits:
+          memory: 4g                 # 真浏览器自动化偏吃内存；并发高可上调
+        reservations:
+          memory: 1g

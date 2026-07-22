@@ -1,0 +1,26 @@
+# 本地开发 / 自行构建镜像用。生产部署请用 docker-compose.yml（GHCR 预构建镜像）。
+#
+#   docker compose -f docker-compose.dev.yml up -d --build
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        APP_VERSION: dev
+    container_name: free-agent-identity-dev
+    restart: unless-stopped
+    init: true
+    shm_size: "1gb"
+    environment:
+      - DISPLAY=:99
+      - ACCOUNT_MANAGER_DATABASE_URL=sqlite:////app/data/account_manager.db
+      # 本地调试可不设密码；公网切勿如此
+      # - APP_PASSWORD=changeme
+      # - VNC_PASSWORD=changeme
+    ports:
+      - "8000:8000"   # FastAPI / Web UI
+      - "6080:6080"   # noVNC（headed 浏览器预览）
+      - "8889:8889"   # Turnstile Solver
+    volumes:
+      - ./data:/app/data
