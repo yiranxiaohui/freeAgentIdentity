@@ -13,7 +13,7 @@ import time
 import uuid
 from datetime import datetime, timedelta
 from typing import Callable
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode, urljoin, urlparse
 
 from curl_cffi import requests
 
@@ -196,28 +196,51 @@ class _SentinelTokenGenerator:
 
 
 class _SentinelBrowserRuntime:
-    """Run the official Sentinel SDK in a hidden browser context.
+    """Run Sentinel in the project's Camoufox browser runtime.
 
-    The signup flow itself remains direct curl_cffi HTTP. Chromium is used
-    only as the JavaScript/browser runtime required to produce Sentinel's
-    encrypted turnstile proof and optional session-observer token.
+    Registration requests themselves remain protocol-based.  Sentinel may
+    need JavaScript/browser state for an encrypted proof; that narrow step
+    uses Camoufox (matching the project's solver) and goes through the same
+    proxy as registration, not a separate Playwright Chromium on the host IP.
     """
 
     _sdk_lock = threading.Lock()
     _sdk_code: str | None = None
 
     def __init__(self, session, *, user_agent: str, proxy: str | None):
-        from playwright.sync_api import sync_playwright
+        from camoufox.sync_api import Camoufox
 
-        self._playwright = sync_playwright().start()
-        del proxy  # VM execution itself performs no network requests.
-        self._browser = self._playwright.chromium.launch(headless=True)
-        self._context = self._browser.new_context(
-            user_agent=user_agent,
-            locale="en-US",
-            viewport={"width": 1920, "height": 1080},
-        )
-        self._page = self._context.new_page()
+        del user_agent  # Camoufox supplies a coherent browser fingerprint.
+        self._camoufox = None
+        self._browser = None
+        self._page = None
+        launch_options = {
+            "headless": True,
+            "locale": "en-US",
+            "block_webrtc": True,
+        }
+        if proxy:
+            parsed_proxy = urlparse(proxy)
+            if parsed_proxy.scheme and parsed_proxy.hostname and parsed_proxy.port:
+                proxy_config = {
+                    "server": (
+                        f"{parsed_proxy.scheme}://"
+                        f"{parsed_proxy.hostname}:{parsed_proxy.port}"
+                    )
+                }
+                if parsed_proxy.username:
+                    proxy_config["username"] = parsed_proxy.username
+                if parsed_proxy.password:
+                    proxy_config["password"] = parsed_proxy.password
+                launch_options["proxy"] = proxy_config
+            else:
+                launch_options["proxy"] = {"server": proxy}
+
+        # Keep the context manager alive for the complete Sentinel session.
+        # Camoufox guarantees that a failed launch releases its Sync API loop.
+        self._camoufox = Camoufox(**launch_options)
+        self._browser = self._camoufox.__enter__()
+        self._page = self._browser.new_page()
         try:
             self._page.goto(
                 f"{OPENAI_AUTH}/about-you",
@@ -251,6 +274,17 @@ class _SentinelBrowserRuntime:
         )
         if self._page.evaluate("typeof window.SentinelSDK") != "object":
             raise RuntimeError("Sentinel SDK 初始化失败")
+
+    @classmethod
+    def create(cls, *args, **kwargs):
+        """Construct the runtime without leaking it when initialization fails."""
+        runtime = cls.__new__(cls)
+        try:
+            cls.__init__(runtime, *args, **kwargs)
+        except Exception:
+            runtime.close()
+            raise
+        return runtime
 
     @staticmethod
     def _looks_like_vm_error(value: str) -> bool:
@@ -341,14 +375,13 @@ class _SentinelBrowserRuntime:
         return headers
 
     def close(self) -> None:
-        for resource in (
-            getattr(self, "_context", None),
-            getattr(self, "_browser", None),
-            getattr(self, "_playwright", None),
-        ):
+        runtime = getattr(self, "_camoufox", None)
+        self._camoufox = None
+        self._browser = None
+        self._page = None
+        if runtime is not None:
             try:
-                if resource is not None:
-                    resource.close()
+                runtime.__exit__(None, None, None)
             except Exception:
                 pass
 
@@ -389,7 +422,7 @@ class OpenAISentinelClient:
                     f"Sentinel challenge 获取失败: {_response_error(response, chat_req)}"
                 )
             if self._browser_runtime is None:
-                self._browser_runtime = _SentinelBrowserRuntime(
+                self._browser_runtime = _SentinelBrowserRuntime.create(
                     self.session,
                     user_agent=self.user_agent,
                     proxy=self.proxy,
