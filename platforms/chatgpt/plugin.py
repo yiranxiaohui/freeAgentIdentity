@@ -7,6 +7,21 @@ from core.registry import register
 from core.proxy_pool import proxy_pool
 
 
+def _resolve_otp_timeout(default: int = 90) -> int:
+    """协议注册等验证码的超时（秒），可在「通用设置」用 otp_wait_timeout 覆盖。
+
+    调短一点能让收不到码的废号更快失败、腾出并发去跑下一个，提高整体吞吐。
+    """
+    try:
+        from core.config_store import config_store
+
+        raw = str(config_store.get("otp_wait_timeout", "") or "").strip()
+        value = int(raw) if raw else default
+        return max(30, min(value, 600))
+    except Exception:
+        return default
+
+
 def _generate_chatgpt_registration_password(length: int = 16) -> str:
     """生成更稳定通过 OpenAI 注册页校验的密码。
 
@@ -200,8 +215,8 @@ class ChatGPTPlatform(BasePlatform):
                 # sender/brand keyword here only causes valid messages to be
                 # discarded.
                 keyword="",
-                wait_message="等待 Outlook 验证码...",
-                timeout=180,
+                wait_message="等待邮箱验证码...",
+                timeout=_resolve_otp_timeout(),
             ),
         )
 

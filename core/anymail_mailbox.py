@@ -55,7 +55,7 @@ class AnyMailPool(BaseMailbox):
         code_pattern: str = "",
         expires_minutes: float | str = 0,
         delete_after_use: bool = False,
-        poll_interval: float | str = 3,
+        poll_interval: float | str = 1.5,
         request_timeout: float | str = 15,
         proxy: str | None = None,
         session: requests.Session | None = None,
@@ -70,7 +70,7 @@ class AnyMailPool(BaseMailbox):
         self.code_pattern = str(code_pattern or "").strip()
         self.expires_minutes = max(0.0, float(0 if expires_minutes in (None, "") else expires_minutes))
         self.delete_after_use = bool(delete_after_use)
-        self.poll_interval = max(0.0, float(3 if poll_interval in (None, "") else poll_interval))
+        self.poll_interval = max(0.0, float(1.5 if poll_interval in (None, "") else poll_interval))
         self.request_timeout = max(1.0, float(15 if request_timeout in (None, "") else request_timeout))
         self.proxy = {"http": proxy, "https": proxy} if proxy else None
         self.session = session or requests.Session()

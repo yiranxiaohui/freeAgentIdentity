@@ -709,15 +709,15 @@ class ChatGPTProtocolRegister:
         if not str(email or "").strip():
             raise RuntimeError("协议注册缺少邮箱")
         if not callable(self.otp_callback):
-            raise RuntimeError("协议注册缺少 Outlook 验证码回调")
+            raise RuntimeError("协议注册缺少邮箱验证码回调")
         self._check_cancelled()
         self.log(f"开始 ChatGPT 协议注册: {email}")
         try:
             self._initialize_signup(email)
-            self.log("等待 Outlook 验证码...")
+            self.log("等待邮箱验证码...")
             code = str(self.otp_callback() or "").strip()
             if not code:
-                raise RuntimeError("未收到 Outlook 验证码")
+                raise RuntimeError("未收到邮箱验证码")
             validation = self._validate_otp(code)
             self.log("邮箱验证码校验通过")
             continue_url = str(validation.get("continue_url") or "").strip()

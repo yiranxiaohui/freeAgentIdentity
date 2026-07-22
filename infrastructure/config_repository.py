@@ -11,7 +11,7 @@ class ConfigRepository:
         "cpa_api_url", "cpa_api_key",
         "team_manager_url", "team_manager_key",
         "sub2api_base_url", "sub2api_api_key", "sub2api_group_id",
-        "proxy_pool_text",
+        "proxy_pool_text", "otp_wait_timeout",
     }
 
     def __init__(self, definitions: ProviderDefinitionsRepository | None = None):

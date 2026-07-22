@@ -308,6 +308,29 @@ function GeneralTab({
       <div className="border-t border-[var(--border)]" />
 
       <SettingGroup
+        title={t("settings.otpTimeout.title")}
+        desc={t("settings.otpTimeout.desc")}
+      >
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] divide-y divide-[var(--border)]/50">
+          <SettingRow label={t("settings.otpTimeout.label")}>
+            <input
+              type="number"
+              min={30}
+              max={600}
+              value={form.otp_wait_timeout || ""}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, otp_wait_timeout: e.target.value }))
+              }
+              placeholder="90"
+              className="control-surface control-surface-compact text-center"
+            />
+          </SettingRow>
+        </div>
+      </SettingGroup>
+
+      <div className="border-t border-[var(--border)]" />
+
+      <SettingGroup
         title={t("settings.proxyPool.title")}
         desc={t("settings.proxyPool.desc")}
       >

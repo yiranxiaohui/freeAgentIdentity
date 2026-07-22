@@ -181,8 +181,8 @@ _BUILTIN_DEFINITIONS: list[dict] = [
             {
                 "key": "anymail_poll_interval",
                 "label": "轮询间隔秒",
-                "placeholder": "3",
-                "default_value": "3",
+                "placeholder": "1.5",
+                "default_value": "1.5",
                 "category": "connection",
             },
             {

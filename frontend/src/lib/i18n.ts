@@ -107,6 +107,10 @@ const ZH_MESSAGES = {
   "settings.sub2api.groupNone": "不绑定分组",
   "settings.sub2api.groupRefresh": "拉取分组",
   "settings.sub2api.groupLoadFailed": "获取分组失败",
+  "settings.otpTimeout.title": "验证码等待",
+  "settings.otpTimeout.desc":
+    "协议注册等邮箱验证码的超时（秒）。调短一点，收不到码的废号更快失败、腾出并发跑下一个，提高吞吐；范围 30~600，默认 90。",
+  "settings.otpTimeout.label": "等码超时（秒）",
   "settings.proxyPool.title": "代理池",
   "settings.proxyPool.desc":
     "一行一个代理。注册时若向导「动态 IP 代理」留空，则从这里按账号轮流分配并绑定到账号，不用每次手填。",
@@ -505,6 +509,10 @@ const EN_MESSAGES: Record<TranslationKey, string> = {
   "settings.sub2api.groupNone": "No group",
   "settings.sub2api.groupRefresh": "Load groups",
   "settings.sub2api.groupLoadFailed": "Failed to load groups",
+  "settings.otpTimeout.title": "Verification Code Wait",
+  "settings.otpTimeout.desc":
+    "Timeout (seconds) for waiting on the email OTP during protocol registration. Lower it so accounts that never receive a code fail faster and free up concurrency; range 30-600, default 90.",
+  "settings.otpTimeout.label": "OTP wait timeout (s)",
   "settings.proxyPool.title": "Proxy Pool",
   "settings.proxyPool.desc":
     "One proxy per line. When the wizard's dynamic IP proxy is left empty, registrations pick from this pool per account and bind it to the account — no manual entry each time.",
