@@ -32,25 +32,34 @@ def create_register_task(body: RegisterTaskRequest):
     extra["identity_provider"] = "mailbox"
     mail_provider = str(extra.get("mail_provider") or "").strip()
     if body.executor_type == "protocol":
-        pool_text = str(extra.get("local_ms_pool_text") or "").strip()
-        pool_file = str(extra.get("local_ms_pool_file") or "").strip()
-        if not pool_text and not pool_file:
-            raise HTTPException(400, "协议注册需要 Outlook 账号池文本或账号池文件")
-        if pool_text:
-            from core.local_ms_mailbox import parse_local_ms_pool_rows
+        # 协议注册同样走通用邮箱抽象。仅当使用 Outlook 账号池(local_ms_pool)时
+        # 才要求在此提供池文本/文件；其它 provider(AnyMail / API 邮箱等)复用
+        # 「设置 → 邮箱服务」里保存的配置。
+        if not mail_provider:
+            from infrastructure.provider_settings_repository import ProviderSettingsRepository
 
-            rows = parse_local_ms_pool_rows(pool_text)
-            if not rows:
-                raise HTTPException(400, "Outlook 账号池未解析到有效账号，请检查输入格式")
-            allow_reuse = str(extra.get("local_ms_pool_allow_reuse") or "").strip().lower() in {
-                "1", "true", "yes", "on"
-            }
-            if not allow_reuse and len(rows) < body.count:
-                raise HTTPException(
-                    400,
-                    f"Outlook 有效账号数 {len(rows)} 少于注册数量 {body.count}",
-                )
-        mail_provider = "local_ms_pool"
+            mail_provider = str(
+                ProviderSettingsRepository().get_default_provider_key("mailbox") or ""
+            ).strip()
+        if mail_provider == "local_ms_pool":
+            pool_text = str(extra.get("local_ms_pool_text") or "").strip()
+            pool_file = str(extra.get("local_ms_pool_file") or "").strip()
+            if not pool_text and not pool_file:
+                raise HTTPException(400, "协议注册需要 Outlook 账号池文本或账号池文件")
+            if pool_text:
+                from core.local_ms_mailbox import parse_local_ms_pool_rows
+
+                rows = parse_local_ms_pool_rows(pool_text)
+                if not rows:
+                    raise HTTPException(400, "Outlook 账号池未解析到有效账号，请检查输入格式")
+                allow_reuse = str(extra.get("local_ms_pool_allow_reuse") or "").strip().lower() in {
+                    "1", "true", "yes", "on"
+                }
+                if not allow_reuse and len(rows) < body.count:
+                    raise HTTPException(
+                        400,
+                        f"Outlook 有效账号数 {len(rows)} 少于注册数量 {body.count}",
+                    )
         extra["mail_provider"] = mail_provider
     payload["extra"] = extra
     if mail_provider:

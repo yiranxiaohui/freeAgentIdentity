@@ -564,7 +564,9 @@ function RegisterModal({
                   <div className="mt-1">{t('accounts.executorSummary')}: <span className="text-[var(--text-primary)]">{selectedExecutor?.label || '-'}</span></div>
                   <div className="mt-1">{t('accounts.verificationSummary')}: <span className="text-[var(--text-primary)]">{
                     selection.executorType === 'protocol'
-                      ? t('accounts.protocolVerificationSummary')
+                      ? (usesOutlookPaste
+                          ? t('accounts.protocolVerificationSummary')
+                          : `内置 Sentinel + ${defaultMailboxLabel || '默认邮箱'} OTP`)
                       : getCaptchaStrategyLabel(selection.executorType, configOptions.captcha_policy, configOptions.captcha_providers, language)
                   }</span></div>
                 </div>
