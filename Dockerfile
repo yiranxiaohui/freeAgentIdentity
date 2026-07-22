@@ -4,6 +4,9 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
+# WelcomeDialog.tsx 用 ../../../assets 引用仓库根目录的 assets/，
+# 需把它拷到 /app/assets 才能被 vite 解析（否则前端构建报 UNRESOLVED_IMPORT）。
+COPY assets/ /app/assets/
 RUN npm run build
 
 # Stage 2: Python 后端 + 运行环境
