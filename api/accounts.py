@@ -44,6 +44,8 @@ class BatchExportRequest(BaseModel):
     status_filter: Optional[str] = None
     email_service_filter: Optional[str] = None
     search_filter: Optional[str] = None
+    # 可选：导入 Sub2API 时随账号携带的代理（注册所用的动态 IP）。
+    proxy: Optional[str] = None
 
 
 def _stream_artifact(artifact: ExportArtifact) -> StreamingResponse:
@@ -154,7 +156,8 @@ def import_accounts_to_sub2api(body: BatchExportRequest):
                 select_all=body.select_all,
                 status_filter=body.status_filter or "",
                 search_filter=body.search_filter or "",
-            )
+            ),
+            proxy=body.proxy or "",
         )
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(400, str(exc)) from exc

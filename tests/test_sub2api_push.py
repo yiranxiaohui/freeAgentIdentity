@@ -64,6 +64,56 @@ def test_push_merges_accounts_and_posts_with_api_key(monkeypatch):
     assert result["sub2api_result"]["account_created"] == 2
 
 
+def test_push_carries_registration_proxy(monkeypatch):
+    monkeypatch.setattr(ae, "_sub2api_config", lambda: ("https://sub2api.example.com", "ak"))
+    monkeypatch.setattr(
+        AccountExportsService,
+        "_load_chatgpt_items",
+        lambda self, selection: [SimpleNamespace(email="a@x.com")],
+    )
+    monkeypatch.setattr(ae, "_make_agent_identity_sub2api_json", lambda item: {"accounts": [{"name": item.email}]})
+
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["body"] = kwargs["json"]
+        return FakeResponse(200, {"data": {"account_created": 1}})
+
+    monkeypatch.setattr("requests.post", fake_post)
+
+    AccountExportsService().push_agent_identity_to_sub2api(
+        _selection(), proxy="socks5h://user:pass@jpn-1.example.xyz:12121"
+    )
+
+    data = captured["body"]["data"]
+    assert len(data["proxies"]) == 1
+    proxy = data["proxies"][0]
+    assert proxy["protocol"] == "socks5h"
+    assert proxy["host"] == "jpn-1.example.xyz"
+    assert proxy["port"] == 12121
+    assert proxy["username"] == "user" and proxy["password"] == "pass"
+    expected_key = "socks5h|jpn-1.example.xyz|12121|user|pass"
+    assert proxy["proxy_key"] == expected_key
+    assert data["accounts"][0]["proxy_key"] == expected_key
+
+
+def test_push_without_proxy_leaves_proxies_empty(monkeypatch):
+    monkeypatch.setattr(ae, "_sub2api_config", lambda: ("https://s.example.com", "ak"))
+    monkeypatch.setattr(
+        AccountExportsService,
+        "_load_chatgpt_items",
+        lambda self, selection: [SimpleNamespace(email="a@x.com")],
+    )
+    monkeypatch.setattr(ae, "_make_agent_identity_sub2api_json", lambda item: {"accounts": [{"name": item.email}]})
+    captured = {}
+    monkeypatch.setattr("requests.post", lambda url, **kw: captured.update(body=kw["json"]) or FakeResponse(200, {"data": {}}))
+
+    AccountExportsService().push_agent_identity_to_sub2api(_selection(), proxy="")
+
+    assert captured["body"]["data"]["proxies"] == []
+    assert "proxy_key" not in captured["body"]["data"]["accounts"][0]
+
+
 def test_push_raises_on_sub2api_http_error(monkeypatch):
     monkeypatch.setattr(ae, "_sub2api_config", lambda: ("https://sub2api.example.com", "ak"))
     monkeypatch.setattr(

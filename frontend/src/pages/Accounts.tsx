@@ -419,7 +419,13 @@ function RegisterModal({
         const accountIds = await resolveAccountIds()
         const res = await apiFetch('/accounts/export/sub2api-agent-identity/import', {
           method: 'POST',
-          body: JSON.stringify({ platform: 'chatgpt', ids: accountIds, select_all: false }),
+          body: JSON.stringify({
+            platform: 'chatgpt',
+            ids: accountIds,
+            select_all: false,
+            // 携带本次注册使用的代理，让导入的账号在 Sub2API 沿用同一出口。
+            proxy: dynamicProxy.trim() || null,
+          }),
         })
         const created = res?.sub2api_result?.account_created
         const failed = res?.sub2api_result?.account_failed

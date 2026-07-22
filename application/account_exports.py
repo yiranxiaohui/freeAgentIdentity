@@ -161,6 +161,47 @@ def _generate_cpa_token_json(item: AccountRecord) -> dict:
     return generate_token_json(_to_cpa_account(item))
 
 
+def _parse_proxy_for_sub2api(proxy_url: str) -> dict | None:
+    """把注册用的代理 URL 解析成 Sub2API DataProxy 结构。
+
+    支持 ``socks5h://user:pass@host:port`` / ``http://host:port`` /
+    裸 ``host:port``。无法解析或协议不支持时返回 None（此时不携带代理）。
+    """
+    from urllib.parse import unquote, urlparse
+
+    raw = str(proxy_url or "").strip()
+    if not raw:
+        return None
+    if "://" not in raw:
+        raw = "http://" + raw
+    try:
+        parsed = urlparse(raw)
+    except Exception:
+        return None
+    protocol = (parsed.scheme or "http").lower()
+    if protocol in {"socks", "socks5t"}:
+        protocol = "socks5"
+    if protocol not in {"http", "https", "socks5", "socks5h"}:
+        return None
+    host = parsed.hostname or ""
+    port = parsed.port or 0
+    if not host or not (0 < int(port) <= 65535):
+        return None
+    username = unquote(parsed.username) if parsed.username else ""
+    password = unquote(parsed.password) if parsed.password else ""
+    proxy_key = f"{protocol}|{host}|{int(port)}|{username}|{password}"
+    return {
+        "proxy_key": proxy_key,
+        "name": f"{host}:{int(port)}",
+        "protocol": protocol,
+        "host": host,
+        "port": int(port),
+        "username": username,
+        "password": password,
+        "status": "active",
+    }
+
+
 def _sub2api_config() -> tuple[str, str]:
     """读取 Sub2API 集成配置：优先「通用设置」里的值，其次 .env 环境变量。"""
     import os
@@ -511,11 +552,16 @@ class AccountExportsService:
             content=buffer,
         )
 
-    def push_agent_identity_to_sub2api(self, selection: AccountExportSelection) -> dict:
+    def push_agent_identity_to_sub2api(
+        self, selection: AccountExportSelection, proxy: str = ""
+    ) -> dict:
         """把选中账号的 Agent Identity 直接导入到 Sub2API 账号池。
 
         复用 Agent Identity 导出的单账号构建逻辑，合并成一个批量 payload 后
         POST 到 Sub2API 的 ``/api/v1/admin/accounts/data`` 接口（``x-api-key`` 鉴权）。
+
+        ``proxy`` 为注册所用的代理 URL；能解析时会作为 DataProxy 一并导入，
+        并给每个账号绑定对应的 ``proxy_key``（Sub2API 侧自动建/复用该代理）。
         """
         import requests
 
@@ -540,11 +586,18 @@ class AccountExportsService:
             detail = "；".join(e["error"] for e in build_errors) or "无有效账号"
             raise ValueError(f"所有账号构建 Agent Identity 失败：{detail}")
 
+        proxies: list[dict] = []
+        parsed_proxy = _parse_proxy_for_sub2api(proxy)
+        if parsed_proxy:
+            proxies.append(parsed_proxy)
+            for account in accounts:
+                account["proxy_key"] = parsed_proxy["proxy_key"]
+
         data_payload = {
             "type": "sub2api-data",
             "version": 1,
             "exported_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "proxies": [],
+            "proxies": proxies,
             "accounts": accounts,
         }
         try:
