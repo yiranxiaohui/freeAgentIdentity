@@ -214,11 +214,6 @@ function RegisterModal({
     message: string
   }>({ state: 'idle', message: '' })
   const [autoImportSub2api, setAutoImportSub2api] = useState(false)
-  const [sub2apiImport, setSub2apiImport] = useState<{
-    state: 'idle' | 'importing' | 'success' | 'error'
-    message: string
-  }>({ state: 'idle', message: '' })
-  const autoImportStartedRef = useRef(false)
   const [startError, setStartError] = useState('')
   const [selection, setSelection] = useState({
     identityProvider: 'mailbox',
@@ -334,12 +329,12 @@ function RegisterModal({
     setStartError('')
     autoDownloadStartedRef.current = false
     setAgentIdentityDownload({ state: 'idle', message: '' })
-    autoImportStartedRef.current = false
-    setSub2apiImport({ state: 'idle', message: '' })
     try {
       const extra: Record<string, any> = {
         identity_provider: selection.identityProvider,
         auto_download_agent_identity: autoDownloadAgentIdentity,
+        // 边注册边导入：后端每成功一个账号立即导入 Sub2API。
+        auto_import_sub2api: autoImportSub2api,
       }
       if (selection.identityProvider === 'mailbox') {
         if (usesOutlookPaste) {
@@ -416,39 +411,8 @@ function RegisterModal({
         })
       }
     }
-
-    if (autoImportSub2api && !autoImportStartedRef.current) {
-      autoImportStartedRef.current = true
-      setSub2apiImport({ state: 'importing', message: t('accounts.sub2apiImporting') })
-      try {
-        const accountIds = await resolveAccountIds()
-        const res = await apiFetch('/accounts/export/sub2api-agent-identity/import', {
-          method: 'POST',
-          body: JSON.stringify({
-            platform: 'chatgpt',
-            ids: accountIds,
-            select_all: false,
-            // 携带本次注册使用的代理，让导入的账号在 Sub2API 沿用同一出口。
-            proxy: dynamicProxy.trim() || null,
-          }),
-        })
-        const created = res?.sub2api_result?.account_created
-        const failed = res?.sub2api_result?.account_failed
-        const suffix =
-          typeof created === 'number'
-            ? ` (${created}${typeof failed === 'number' && failed > 0 ? `, ${failed} failed` : ''})`
-            : ''
-        const groupPart = res?.group_error
-          ? `，绑定分组失败：${res.group_error}`
-          : res?.group_bound
-            ? `，已绑定分组（${res.group_bound}）`
-            : ''
-        setSub2apiImport({ state: 'success', message: `${t('accounts.sub2apiImported')}${suffix}${groupPart}` })
-      } catch (error: any) {
-        const detail = error?.message || String(error)
-        setSub2apiImport({ state: 'error', message: `${t('accounts.sub2apiImportFailed')}: ${detail}` })
-      }
-    }
+    // 自动导入 Sub2API 由后端在注册流程里逐个完成（边注册边导入），
+    // 结果见任务实时日志，这里不再触发。
   }
 
   const dialog = (
@@ -660,17 +624,6 @@ function RegisterModal({
                       : 'border-sky-500/30 bg-sky-500/10 text-sky-300'
                 }`}>
                   {agentIdentityDownload.message}
-                </div>
-              ) : null}
-              {sub2apiImport.state !== 'idle' ? (
-                <div className={`rounded-lg border px-3 py-2 text-xs ${
-                  sub2apiImport.state === 'success'
-                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                    : sub2apiImport.state === 'error'
-                      ? 'border-red-500/30 bg-red-500/10 text-red-300'
-                      : 'border-sky-500/30 bg-sky-500/10 text-sky-300'
-                }`}>
-                  {sub2apiImport.message}
                 </div>
               ) : null}
             </div>

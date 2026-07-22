@@ -558,6 +558,32 @@ def execute_task(task_id: str) -> None:
     handler(payload, logger)
 
 
+def _truthy_flag(value: object) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on", "y"}
+
+
+def _auto_import_account_to_sub2api(
+    account_id: int, email: str, proxy: str | None, logger: "TaskLogger"
+) -> None:
+    """注册成功后立即把单个账号导入 Sub2API（含分组绑定）。失败只记日志，不影响注册。"""
+    try:
+        from application.account_exports import AccountExportsService
+        from domain.accounts import AccountExportSelection
+
+        result = AccountExportsService().push_agent_identity_to_sub2api(
+            AccountExportSelection(platform="chatgpt", ids=[account_id]),
+            proxy=str(proxy or ""),
+        )
+        parts = [f"已导入 Sub2API: {email}"]
+        if result.get("group_bound"):
+            parts.append(f"绑定分组({result['group_bound']})")
+        if result.get("group_error"):
+            parts.append(f"绑定分组失败: {result['group_error']}")
+        logger.log("，".join(parts))
+    except Exception as exc:  # noqa: BLE001
+        logger.log(f"导入 Sub2API 失败: {email}: {exc}", level="error")
+
+
 def _parse_proxy_pool_text(text: str) -> list[str]:
     """把「通用设置 → 代理池」文本解析成代理列表，一行一个，忽略空行与注释。"""
     proxies: list[str] = []
@@ -677,6 +703,10 @@ def _execute_register_task(payload: dict[str, Any], logger: TaskLogger) -> None:
                 proxy_pool.report_success(resolved_proxy)
             logger.record_success()
             logger.log(f"注册成功: {account.email}")
+            # 边注册边导入：每成功一个立即导入 Sub2API（趁账号代理仍生效，
+            # 铸 Agent Identity 走该代理），避免任务结束时一次性大请求超时。
+            if _truthy_flag(extra.get("auto_import_sub2api")):
+                _auto_import_account_to_sub2api(saved_account_id, account.email, resolved_proxy, logger)
             return {
                 "account_id": saved_account_id,
                 "email": account.email,

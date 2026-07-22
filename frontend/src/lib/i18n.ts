@@ -297,7 +297,7 @@ const ZH_MESSAGES = {
     "仅导出本次成功账号；单个账号下载 JSON，多个账号下载 ZIP，可导入 Sub2API。",
   "accounts.autoImportSub2api": "注册成功后自动导入 Sub2API",
   "accounts.autoImportSub2apiHint":
-    "把本次成功账号的 Agent Identity 直接推送到 Sub2API 账号池（需先在 通用设置 → Sub2API 集成 配置地址与 API Key）。",
+    "边注册边导入：每成功一个账号立即推送到 Sub2API 账号池（含分组绑定），结果见任务日志。需先在 通用设置 → Sub2API 集成 配置地址与 API Key。",
   "accounts.sub2apiImporting": "正在导入 Sub2API…",
   "accounts.sub2apiImported": "已导入 Sub2API",
   "accounts.sub2apiImportFailed": "导入 Sub2API 失败",
@@ -704,7 +704,7 @@ const EN_MESSAGES: Record<TranslationKey, string> = {
     "Exports only accounts created successfully by this task: JSON for one account or ZIP for multiple accounts, ready for Sub2API.",
   "accounts.autoImportSub2api": "Auto-import to Sub2API after registration",
   "accounts.autoImportSub2apiHint":
-    "Pushes this task's successful accounts (Agent Identity) straight into your Sub2API pool. Configure the URL and API key under Settings → Sub2API Integration first.",
+    "Import as you go: each successful account is pushed to your Sub2API pool immediately (with group binding); see the task log for results. Configure the URL and API key under Settings → Sub2API Integration first.",
   "accounts.sub2apiImporting": "Importing into Sub2API…",
   "accounts.sub2apiImported": "Imported into Sub2API",
   "accounts.sub2apiImportFailed": "Sub2API import failed",
