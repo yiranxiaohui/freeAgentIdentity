@@ -1560,6 +1560,133 @@ function ExportMenu({
   )
 }
 
+// ── 后台自动注册弹框 ──────────────────────────────────────────
+function AutoRegisterModal({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
+  const [status, setStatus] = useState<any>(null)
+  const [form, setForm] = useState({ batch: 5, concurrency: 3, interval: 10, target: 0, executor_type: 'protocol', auto_import: true })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const refresh = async () => {
+    try {
+      const s = await apiFetch('/auto-register/status')
+      setStatus(s)
+      setForm((f) => ({
+        batch: s.batch ?? f.batch,
+        concurrency: s.concurrency ?? f.concurrency,
+        interval: s.interval ?? f.interval,
+        target: s.target ?? f.target,
+        executor_type: s.executor_type || f.executor_type,
+        auto_import: typeof s.auto_import === 'boolean' ? s.auto_import : f.auto_import,
+      }))
+    } catch (e: any) {
+      setError(e?.message || '')
+    }
+  }
+
+  useEffect(() => {
+    refresh()
+    const t = setInterval(refresh, 3000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const start = async () => {
+    setBusy(true); setError('')
+    try {
+      await apiFetch('/auto-register/start', { method: 'POST', body: JSON.stringify(form) })
+      await refresh(); onChanged()
+    } catch (e: any) { setError(e?.message || '启动失败') } finally { setBusy(false) }
+  }
+  const stop = async () => {
+    setBusy(true); setError('')
+    try { await apiFetch('/auto-register/stop', { method: 'POST' }); await refresh() }
+    catch (e: any) { setError(e?.message || '停止失败') } finally { setBusy(false) }
+  }
+
+  const enabled = !!status?.enabled
+  const running = !!status?.running
+
+  return (
+    <div className="dialog-backdrop" onClick={onClose}>
+      <div className="dialog-panel dialog-panel-sm flex flex-col" style={{ maxHeight: '90vh' }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]">
+          <div>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">后台自动注册</h2>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">配一次，后台持续注册，无需每次手动开</p>
+          </div>
+          <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="px-6 py-4 space-y-4 flex-1 overflow-y-auto min-h-0">
+          <div className={`rounded-lg border px-3 py-2 text-xs ${enabled ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-[var(--border)] bg-[var(--bg-hover)] text-[var(--text-secondary)]'}`}>
+            状态：{enabled ? (running ? '运行中' : '已开启（等待中）') : '已停止'}
+            {' · '}已注册 {status?.done ?? 0}{status?.target ? ` / ${status.target}` : '（无限）'}
+            {status?.current_task_id ? ` · 当前任务 ${status.current_task_id}` : ''}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-[var(--text-muted)] block mb-1">每批数量</label>
+              <input type="number" min={1} max={99} value={form.batch} disabled={enabled}
+                onChange={(e) => setForm((f) => ({ ...f, batch: Number(e.target.value) }))}
+                className="control-surface control-surface-compact text-center" />
+            </div>
+            <div>
+              <label className="text-xs text-[var(--text-muted)] block mb-1">并发</label>
+              <input type="number" min={1} max={5} value={form.concurrency} disabled={enabled}
+                onChange={(e) => setForm((f) => ({ ...f, concurrency: Number(e.target.value) }))}
+                className="control-surface control-surface-compact text-center" />
+            </div>
+            <div>
+              <label className="text-xs text-[var(--text-muted)] block mb-1">批次间隔（秒）</label>
+              <input type="number" min={0} value={form.interval} disabled={enabled}
+                onChange={(e) => setForm((f) => ({ ...f, interval: Number(e.target.value) }))}
+                className="control-surface control-surface-compact text-center" />
+            </div>
+            <div>
+              <label className="text-xs text-[var(--text-muted)] block mb-1">目标数（0=无限）</label>
+              <input type="number" min={0} value={form.target} disabled={enabled}
+                onChange={(e) => setForm((f) => ({ ...f, target: Number(e.target.value) }))}
+                className="control-surface control-surface-compact text-center" />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-[var(--text-muted)] block mb-1">执行方式</label>
+            <select value={form.executor_type} disabled={enabled}
+              onChange={(e) => setForm((f) => ({ ...f, executor_type: e.target.value }))}
+              className="control-surface appearance-none w-full">
+              <option value="protocol">协议模式</option>
+              <option value="headless">后台浏览器自动</option>
+              <option value="headed">可视浏览器自动</option>
+            </select>
+          </div>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-pane)]/45 px-4 py-3">
+            <input type="checkbox" checked={form.auto_import} disabled={enabled}
+              onChange={(e) => setForm((f) => ({ ...f, auto_import: e.target.checked }))}
+              className="mt-0.5 h-4 w-4 accent-[var(--accent)]" />
+            <span>
+              <span className="block text-sm font-medium text-[var(--text-primary)]">注册成功后自动导入 Sub2API</span>
+              <span className="mt-1 block text-xs text-[var(--text-muted)]">边注册边导入（含分组绑定）；邮箱走默认 provider，代理走代理池。</span>
+            </span>
+          </label>
+
+          {error && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
+        </div>
+        <div className="flex gap-3 px-6 py-4 border-t border-[var(--border)]">
+          {enabled ? (
+            <Button variant="outline" onClick={stop} disabled={busy} className="flex-1">{busy ? '处理中...' : '停止'}</Button>
+          ) : (
+            <Button onClick={start} disabled={busy} className="flex-1">{busy ? '处理中...' : '开始后台注册'}</Button>
+          )}
+          <Button variant="outline" onClick={onClose} className="flex-1">关闭</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main ────────────────────────────────────────────────────
 export default function Accounts() {
   const { t, language } = useI18n()
@@ -1574,6 +1701,7 @@ export default function Accounts() {
   const [detail, setDetail] = useState<any | null>(null)
   const [showImport, setShowImport] = useState(false)
   const [showRegister, setShowRegister] = useState(false)
+  const [showAutoRegister, setShowAutoRegister] = useState(false)
   const [platformsMap, setPlatformsMap] = useState<Record<string, any>>({})
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [actionResult, setActionResult] = useState<{ title: string; payload: any } | null>(null)
@@ -1678,6 +1806,7 @@ export default function Accounts() {
       {detail && <DetailModal acc={detail} onClose={() => setDetail(null)} onSave={() => { setDetail(null); load() }} />}
       {showImport && <ImportModal onClose={() => setShowImport(false)} onDone={() => { setShowImport(false); load() }} />}
       {showRegister && <RegisterModal platformMeta={platformsMap[tab]} onClose={() => setShowRegister(false)} onDone={() => load()} />}
+      {showAutoRegister && <AutoRegisterModal onClose={() => setShowAutoRegister(false)} onChanged={() => load()} />}
       {actionResult && <ActionResultModal title={actionResult.title} payload={actionResult.payload} onClose={() => setActionResult(null)} />}
       {batchTask && (
         <ActionTaskModal
@@ -1718,6 +1847,11 @@ export default function Accounts() {
               <Plus className="mr-1.5 h-3.5 w-3.5 shrink-0" />
               {t('accounts.autoRegister')}
             </Button>
+            {tab === 'chatgpt' && (
+              <Button size="sm" variant="outline" onClick={() => setShowAutoRegister(true)} className={ACCOUNT_TOOL_BUTTON_CLASS}>
+                {t('autoRegister.title')}
+              </Button>
+            )}
             <div className="hidden h-4 w-[1px] shrink-0 bg-[var(--border)] sm:block"></div>
             <Button size="sm" variant="outline" onClick={() => setShowImport(true)} className={ACCOUNT_TOOL_BUTTON_CLASS}>
               <Upload className="mr-1.5 h-3.5 w-3.5 shrink-0" />

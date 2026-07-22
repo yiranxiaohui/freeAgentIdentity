@@ -73,6 +73,7 @@ from api.provider_definitions import router as provider_definitions_router
 from api.provider_settings import router as provider_settings_router
 from api.system import router as system_router
 from api.task_commands import router as task_commands_router
+from api.auto_register import router as auto_register_router
 from api.tasks import router as tasks_router
 from core.db import init_db
 from core.registry import load_all
@@ -95,6 +96,8 @@ async def lifespan(app: FastAPI):
     start_async()
     from core.lifecycle import lifecycle_manager
     lifecycle_manager.start()
+    from application.auto_register import auto_register_controller
+    auto_register_controller.resume_if_enabled()
     yield
     from core.lifecycle import lifecycle_manager as _lifecycle_manager
     _lifecycle_manager.stop()
@@ -127,6 +130,7 @@ app.include_router(provider_definitions_router, prefix="/api")
 app.include_router(provider_settings_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
 app.include_router(task_commands_router, prefix="/api")
+app.include_router(auto_register_router, prefix="/api")
 app.include_router(system_router, prefix="/api")
 
 
