@@ -310,6 +310,13 @@ function RegisterModal({
   }, [selection.identityProvider, selection.executorType, supportedExecutors])
 
   const defaultMailboxProvider = (configOptions.mailbox_settings || []).find(item => item.is_default) || configOptions.mailbox_settings?.[0] || null
+  const defaultMailboxKey = defaultMailboxProvider?.provider_key || ''
+  const defaultMailboxLabel = defaultMailboxProvider?.catalog_label
+    || (configOptions.mailbox_providers || []).find(p => p.value === defaultMailboxKey)?.label
+    || defaultMailboxKey
+  // 协议模式仅当默认邮箱是 Outlook 账号池时才需要当场粘贴账号；
+  // 其它 provider（AnyMail / API 邮箱等）直接复用「设置→邮箱服务」里的配置。
+  const usesOutlookPaste = selection.executorType === 'protocol' && defaultMailboxKey === 'local_ms_pool'
 
   const start = async () => {
     setStarting(true)
@@ -322,17 +329,17 @@ function RegisterModal({
         auto_download_agent_identity: autoDownloadAgentIdentity,
       }
       if (selection.identityProvider === 'mailbox') {
-        if (selection.executorType === 'protocol') {
+        if (usesOutlookPaste) {
           if (!outlookPoolText.trim()) {
             throw new Error(t('accounts.outlookPoolRequired'))
           }
           extra.mail_provider = 'local_ms_pool'
           extra.local_ms_pool_text = outlookPoolText.trim()
         } else {
-          if (!defaultMailboxProvider?.provider_key) {
+          if (!defaultMailboxKey) {
             throw new Error(t('accounts.missingDefaultMailbox'))
           }
-          extra.mail_provider = defaultMailboxProvider.provider_key
+          extra.mail_provider = defaultMailboxKey
         }
       }
       const res = await apiFetch('/tasks/register', {
@@ -479,7 +486,7 @@ function RegisterModal({
                   </div>
                 </div>
 
-                {selection.executorType === 'protocol' ? (
+                {usesOutlookPaste ? (
                   <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-pane)]/45 p-4">
                     <label className="text-sm font-semibold text-[var(--text-primary)] block mb-1">
                       {t('accounts.outlookPoolLabel')}
@@ -495,6 +502,12 @@ function RegisterModal({
                       placeholder={t('accounts.outlookPoolPlaceholder')}
                       className="control-surface w-full resize-y font-mono text-xs"
                     />
+                  </div>
+                ) : selection.executorType === 'protocol' ? (
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-pane)]/45 p-4 text-xs text-[var(--text-muted)]">
+                    协议模式将使用默认邮箱来源：
+                    <span className="text-[var(--text-primary)] font-medium">{defaultMailboxLabel || '未配置'}</span>
+                    。可在「设置 → 邮箱服务」修改默认邮箱 provider 及其配置；选用 Outlook 账号池时此处会出现粘贴框。
                   </div>
                 ) : null}
 
@@ -564,7 +577,7 @@ function RegisterModal({
 
                 <Button
                   onClick={start}
-                  disabled={starting || !selection.identityProvider || !selection.executorType || (selection.executorType === 'protocol' && !outlookPoolText.trim())}
+                  disabled={starting || !selection.identityProvider || !selection.executorType || (usesOutlookPaste && !outlookPoolText.trim())}
                   className="w-full"
                 >
                   {starting ? t('accounts.starting') : t('accounts.startAutoRegister')}
