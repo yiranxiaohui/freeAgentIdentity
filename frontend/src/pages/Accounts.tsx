@@ -438,7 +438,12 @@ function RegisterModal({
           typeof created === 'number'
             ? ` (${created}${typeof failed === 'number' && failed > 0 ? `, ${failed} failed` : ''})`
             : ''
-        setSub2apiImport({ state: 'success', message: `${t('accounts.sub2apiImported')}${suffix}` })
+        const groupPart = res?.group_error
+          ? `，绑定分组失败：${res.group_error}`
+          : res?.group_bound
+            ? `，已绑定分组（${res.group_bound}）`
+            : ''
+        setSub2apiImport({ state: 'success', message: `${t('accounts.sub2apiImported')}${suffix}${groupPart}` })
       } catch (error: any) {
         const detail = error?.message || String(error)
         setSub2apiImport({ state: 'error', message: `${t('accounts.sub2apiImportFailed')}: ${detail}` })
@@ -1061,7 +1066,12 @@ function ActionMenu({
       .then((resp) => {
         const created = resp?.sub2api_result?.account_created
         const suffix = typeof created === 'number' ? `（${created}）` : ''
-        setToast({ type: 'success', text: `已导入 Sub2API${suffix}` })
+        const groupPart = resp?.group_error
+          ? `，绑定分组失败：${resp.group_error}`
+          : resp?.group_bound
+            ? `，已绑定分组（${resp.group_bound}）`
+            : ''
+        setToast({ type: 'success', text: `已导入 Sub2API${suffix}${groupPart}` })
         onChanged()
       })
       .catch((error: any) => {

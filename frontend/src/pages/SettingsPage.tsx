@@ -124,6 +124,25 @@ function GeneralTab({
     useState<ConfigOptionsResponse | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [sub2apiGroups, setSub2apiGroups] = useState<
+    Array<{ id: number | string; name: string }>
+  >([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [groupsError, setGroupsError] = useState("");
+
+  const loadSub2apiGroups = async () => {
+    setLoadingGroups(true);
+    setGroupsError("");
+    try {
+      const res = await apiFetch("/accounts/sub2api/groups");
+      setSub2apiGroups(Array.isArray(res?.groups) ? res.groups : []);
+    } catch (e: any) {
+      setGroupsError(e?.message || t("settings.sub2api.groupLoadFailed"));
+      setSub2apiGroups([]);
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -244,6 +263,45 @@ function GeneralTab({
               className="control-surface w-full font-mono text-xs"
             />
           </SettingRow>
+          <SettingRow label={t("settings.sub2api.group")}>
+            <div className="flex items-center gap-2">
+              <select
+                value={form.sub2api_group_id || ""}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, sub2api_group_id: e.target.value }))
+                }
+                className="control-surface appearance-none flex-1"
+              >
+                <option value="">{t("settings.sub2api.groupNone")}</option>
+                {form.sub2api_group_id &&
+                  !sub2apiGroups.some(
+                    (g) => String(g.id) === String(form.sub2api_group_id),
+                  ) && (
+                    <option value={form.sub2api_group_id}>
+                      {`#${form.sub2api_group_id}`}
+                    </option>
+                  )}
+                {sub2apiGroups.map((g) => (
+                  <option key={g.id} value={String(g.id)}>
+                    {g.name} (#{g.id})
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={loadSub2apiGroups}
+                disabled={loadingGroups}
+                className="shrink-0 rounded-md border border-[var(--border)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+              >
+                {loadingGroups
+                  ? t("common.loading")
+                  : t("settings.sub2api.groupRefresh")}
+              </button>
+            </div>
+          </SettingRow>
+          {groupsError && (
+            <div className="px-4 pb-3 text-xs text-red-400">{groupsError}</div>
+          )}
         </div>
       </SettingGroup>
 

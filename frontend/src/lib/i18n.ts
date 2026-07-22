@@ -103,6 +103,10 @@ const ZH_MESSAGES = {
     "配置后，注册页可勾选“注册成功后自动导入 Sub2API”，把账号直接推送到 Sub2API 账号池。",
   "settings.sub2api.baseUrl": "Sub2API 地址",
   "settings.sub2api.apiKey": "Admin API Key",
+  "settings.sub2api.group": "导入分组",
+  "settings.sub2api.groupNone": "不绑定分组",
+  "settings.sub2api.groupRefresh": "拉取分组",
+  "settings.sub2api.groupLoadFailed": "获取分组失败",
   "settings.proxyPool.title": "代理池",
   "settings.proxyPool.desc":
     "一行一个代理。注册时若向导「动态 IP 代理」留空，则从这里按账号轮流分配并绑定到账号，不用每次手填。",
@@ -496,6 +500,10 @@ const EN_MESSAGES: Record<TranslationKey, string> = {
     "Once set, the registration page can auto-import accounts into your Sub2API pool.",
   "settings.sub2api.baseUrl": "Sub2API URL",
   "settings.sub2api.apiKey": "Admin API Key",
+  "settings.sub2api.group": "Import Group",
+  "settings.sub2api.groupNone": "No group",
+  "settings.sub2api.groupRefresh": "Load groups",
+  "settings.sub2api.groupLoadFailed": "Failed to load groups",
   "settings.proxyPool.title": "Proxy Pool",
   "settings.proxyPool.desc":
     "One proxy per line. When the wizard's dynamic IP proxy is left empty, registrations pick from this pool per account and bind it to the account — no manual entry each time.",

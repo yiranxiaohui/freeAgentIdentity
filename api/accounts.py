@@ -147,6 +147,16 @@ def export_accounts_sub2api_agent_identity(body: BatchExportRequest):
     return _stream_artifact(artifact)
 
 
+@router.get("/sub2api/groups")
+def sub2api_groups():
+    from application.account_exports import list_sub2api_groups
+
+    try:
+        return {"groups": list_sub2api_groups()}
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
 @router.post("/export/sub2api-agent-identity/import")
 def import_accounts_to_sub2api(body: BatchExportRequest):
     try:

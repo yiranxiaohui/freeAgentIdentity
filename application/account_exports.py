@@ -213,6 +213,98 @@ def _sub2api_config() -> tuple[str, str]:
     return base_url, api_key
 
 
+def _sub2api_group_id() -> int:
+    """导入 Sub2API 后要绑定的目标分组 ID；未配置返回 0（不绑定）。"""
+    from core.config_store import config_store
+
+    raw = str(config_store.get("sub2api_group_id", "") or "").strip()
+    try:
+        return int(raw) if raw else 0
+    except ValueError:
+        return 0
+
+
+def _extract_account_list(body: object) -> list[dict]:
+    """从 Sub2API 账号列表响应里稳健地取出账号数组（兼容多种包裹形式）。"""
+    data = body.get("data") if isinstance(body, dict) else body
+    if isinstance(data, list):
+        return [x for x in data if isinstance(x, dict)]
+    if isinstance(data, dict):
+        for key in ("list", "accounts", "items", "records"):
+            value = data.get(key)
+            if isinstance(value, list):
+                return [x for x in value if isinstance(x, dict)]
+    return []
+
+
+def _bind_accounts_to_group(base_url: str, api_key: str, emails: list[str], group_id: int) -> int:
+    """把 emails 对应的 Sub2API 账号绑定到指定分组，返回成功绑定的账号数。
+
+    先按 email 查出账号 ID，再用 bulk-update 一次性绑组。
+    """
+    import requests
+
+    headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+    account_ids: list[int] = []
+    for email in dict.fromkeys(e for e in emails if e):
+        try:
+            resp = requests.get(
+                f"{base_url}/api/v1/admin/accounts",
+                headers=headers,
+                params={"search": email, "page_size": 50},
+                timeout=20,
+            )
+            resp.raise_for_status()
+            items = _extract_account_list(resp.json())
+        except Exception:  # noqa: BLE001
+            continue
+        for item in items:
+            name = str(item.get("name") or item.get("email") or "").strip()
+            if name == email and item.get("id") is not None:
+                try:
+                    account_ids.append(int(item["id"]))
+                except (TypeError, ValueError):
+                    pass
+                break
+
+    if not account_ids:
+        return 0
+
+    resp = requests.post(
+        f"{base_url}/api/v1/admin/accounts/bulk-update",
+        headers=headers,
+        json={"account_ids": account_ids, "group_ids": [group_id]},
+        timeout=30,
+    )
+    if resp.status_code >= 400:
+        raise RuntimeError(f"绑定分组失败 (HTTP {resp.status_code}): {str(resp.text or '')[:200]}")
+    return len(account_ids)
+
+
+def list_sub2api_groups() -> list[dict]:
+    """拉取 Sub2API 分组列表 [{id, name}]，供设置页下拉选择。"""
+    import requests
+
+    base_url, api_key = _sub2api_config()
+    if not base_url or not api_key:
+        raise ValueError("未配置 Sub2API 地址或 API Key")
+    resp = requests.get(
+        f"{base_url}/api/v1/admin/groups/all",
+        headers={"x-api-key": api_key},
+        timeout=20,
+    )
+    if resp.status_code >= 400:
+        raise RuntimeError(f"获取分组失败 (HTTP {resp.status_code}): {str(resp.text or '')[:200]}")
+    body = resp.json()
+    data = body.get("data") if isinstance(body, dict) else body
+    groups = data if isinstance(data, list) else []
+    return [
+        {"id": g.get("id"), "name": g.get("name")}
+        for g in groups
+        if isinstance(g, dict) and g.get("id") is not None
+    ]
+
+
 def _make_sub2api_json(item: AccountRecord) -> dict:
     payload = _chatgpt_export_payload(item)
     return {
@@ -633,11 +725,25 @@ class AccountExportsService:
         except Exception:  # noqa: BLE001
             body = {}
         result = body.get("data") if isinstance(body, dict) else None
+
+        group_bound = 0
+        group_error = ""
+        group_id = _sub2api_group_id()
+        if group_id:
+            emails = [str(a.get("name") or "").strip() for a in accounts if a.get("name")]
+            try:
+                group_bound = _bind_accounts_to_group(base_url, api_key, emails, group_id)
+            except Exception as exc:  # noqa: BLE001
+                group_error = str(exc)
+
         return {
             "pushed": len(accounts),
             "build_failed": len(build_errors),
             "build_errors": build_errors,
             "sub2api_result": result if isinstance(result, dict) else body,
+            "group_id": group_id or None,
+            "group_bound": group_bound,
+            "group_error": group_error,
         }
 
     def export_chatgpt_agent_identity_sub2api(
