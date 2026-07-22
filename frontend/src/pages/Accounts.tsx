@@ -1566,19 +1566,26 @@ function AutoRegisterModal({ onClose, onChanged }: { onClose: () => void; onChan
   const [form, setForm] = useState({ batch: 5, concurrency: 3, interval: 10, target: 0, executor_type: 'protocol', auto_import: true })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const formInitedRef = useRef(false)
 
   const refresh = async () => {
     try {
       const s = await apiFetch('/auto-register/status')
       setStatus(s)
-      setForm((f) => ({
-        batch: s.batch ?? f.batch,
-        concurrency: s.concurrency ?? f.concurrency,
-        interval: s.interval ?? f.interval,
-        target: s.target ?? f.target,
-        executor_type: s.executor_type || f.executor_type,
-        auto_import: typeof s.auto_import === 'boolean' ? s.auto_import : f.auto_import,
-      }))
+      // 仅首次加载用已保存的配置初始化表单，之后不再覆盖用户的编辑，
+      // 否则每 3 秒的轮询会把"自动导入"等勾选刷回旧值。
+      if (!formInitedRef.current) {
+        formInitedRef.current = true
+        setForm((f) => ({
+          batch: s.batch ?? f.batch,
+          concurrency: s.concurrency ?? f.concurrency,
+          interval: s.interval ?? f.interval,
+          target: s.target ?? f.target,
+          executor_type: s.executor_type || f.executor_type,
+          // 默认保持勾选；仅在已运行时反映真实配置，避免首次打开被初始化成未勾选。
+          auto_import: s.enabled && typeof s.auto_import === 'boolean' ? s.auto_import : f.auto_import,
+        }))
+      }
     } catch (e: any) {
       setError(e?.message || '')
     }
