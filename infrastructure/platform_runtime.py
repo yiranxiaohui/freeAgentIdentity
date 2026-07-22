@@ -6,7 +6,7 @@ from typing import Any, Callable
 from sqlmodel import Session
 
 from core.base_platform import RegisterConfig
-from core.account_graph import patch_account_graph
+from core.account_graph import load_account_graphs, patch_account_graph
 from core.db import AccountModel, engine
 from core.platform_accounts import build_platform_account
 from core.registry import get, list_platforms, load_all
@@ -264,7 +264,11 @@ class PlatformRuntime:
                 return ActionExecutionResult(ok=False, error="账号不存在")
 
             platform_cls = get(command.platform)
-            instance = platform_cls(config=RegisterConfig())
+            # 查询状态/订阅等操作走账号注册时绑定的代理，保持出口一致（避免服务器
+            # 直连触发 OpenAI 地区风控 / 拿到不准的状态）。账号没绑代理才回退。
+            _graph = load_account_graphs(session, [int(command.account_id)]).get(int(command.account_id), {})
+            _account_proxy = str((_graph.get("overview") or {}).get("proxy") or "").strip()
+            instance = platform_cls(config=RegisterConfig(proxy=_account_proxy or None))
             if log_fn:
                 instance.set_logger(log_fn)
             if callable(cancel_check):

@@ -492,7 +492,11 @@ def _run_single_account_check(account_id: int, logger: TaskLogger | None = None)
         model = session.get(AccountModel, account_id)
         if not model:
             raise ValueError("账号不存在")
-        plugin = get(model.platform)(config=RegisterConfig())
+        # 刷新额度/有效性检测走账号绑定的代理，出口和注册一致；没绑代理才回退
+        # 到代理池/直连（check_valid 内部处理回退）。
+        _graph = load_account_graphs(session, [int(account_id)]).get(int(account_id), {})
+        _account_proxy = str((_graph.get("overview") or {}).get("proxy") or "").strip()
+        plugin = get(model.platform)(config=RegisterConfig(proxy=_account_proxy or None))
         account = build_platform_account(session, model)
 
     valid = plugin.check_valid(account)
