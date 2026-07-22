@@ -15,6 +15,7 @@ class AccountRecord:
     primary_token: str = ""
     trial_end_time: int = 0
     cashier_url: str = ""
+    proxy: str = ""
     lifecycle_status: str = "registered"
     validity_status: str = "unknown"
     plan_state: str = "unknown"
@@ -51,6 +52,7 @@ class AccountUpdateCommand:
     replace_provider_resources: bool = False
     primary_token: Optional[str] = None
     cashier_url: Optional[str] = None
+    proxy: Optional[str] = None
     region: Optional[str] = None
     trial_end_time: Optional[int] = None
 

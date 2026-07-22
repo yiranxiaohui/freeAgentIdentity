@@ -68,6 +68,7 @@ NON_LEGACY_EXTRA_KEYS = {
     "identity",
     "verification_mailbox",
     "cashier_url",
+    "proxy",
     "region",
     "trial_end_time",
 }
@@ -263,6 +264,7 @@ def _normalize_overview_summary(
     trial_end_time = int(payload.get("trial_end_time") or 0)
     payload["trial_end_time"] = trial_end_time
     payload["cashier_url"] = _text(payload.get("cashier_url"))
+    payload["proxy"] = _text(payload.get("proxy"))
     payload["region"] = _text(payload.get("region"))
 
     validity_status = _derive_validity_status(lifecycle_status, payload)
@@ -857,6 +859,7 @@ def sync_platform_account_graph(session: Session, model: AccountModel, account: 
         {
             "trial_end_time": int(getattr(account, "trial_end_time", 0) or 0),
             "cashier_url": _text(extra.get("cashier_url")),
+            "proxy": _text(extra.get("proxy")),
             "region": _text(getattr(account, "region", "")),
         }
     )
@@ -912,6 +915,7 @@ def patch_account_graph(
     lifecycle_status: str | None = None,
     primary_token: str | None = None,
     cashier_url: str | None = None,
+    proxy: str | None = None,
     region: str | None = None,
     trial_end_time: int | None = None,
     summary_updates: dict[str, Any] | None = None,
@@ -931,6 +935,8 @@ def patch_account_graph(
         summary.update(summary_updates)
     if cashier_url is not None:
         summary["cashier_url"] = cashier_url
+    if proxy is not None:
+        summary["proxy"] = proxy
     if region is not None:
         summary["region"] = region
     if trial_end_time is not None:

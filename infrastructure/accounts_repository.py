@@ -29,12 +29,15 @@ def _build_summary_updates(
     overview: dict | None,
     *,
     cashier_url: str | None = None,
+    proxy: str | None = None,
     region: str | None = None,
     trial_end_time: int | None = None,
 ) -> dict | None:
     summary = dict(overview or {})
     if cashier_url is not None:
         summary["cashier_url"] = cashier_url
+    if proxy is not None:
+        summary["proxy"] = proxy
     if region is not None:
         summary["region"] = region
     if trial_end_time is not None:
@@ -66,6 +69,7 @@ def _to_record(model: AccountModel, graph: dict | None = None) -> AccountRecord:
         primary_token=resolve_primary_token(model, graph),
         trial_end_time=int(overview.get("trial_end_time") or 0),
         cashier_url=str(overview.get("cashier_url") or ""),
+        proxy=str(overview.get("proxy") or ""),
         lifecycle_status=lifecycle_status,
         validity_status=validity_status,
         plan_state=plan_state,
@@ -176,11 +180,13 @@ class AccountsRepository:
                 lifecycle_status=command.lifecycle_status,
                 primary_token=command.primary_token,
                 cashier_url=command.cashier_url,
+                proxy=command.proxy,
                 region=command.region,
                 trial_end_time=command.trial_end_time,
                 summary_updates=_build_summary_updates(
                     command.overview,
                     cashier_url=command.cashier_url,
+                    proxy=command.proxy,
                     region=command.region,
                     trial_end_time=command.trial_end_time,
                 ),

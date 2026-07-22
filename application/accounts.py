@@ -137,6 +137,7 @@ class AccountsService:
             "primary_token": item.primary_token,
             "trial_end_time": item.trial_end_time,
             "cashier_url": item.cashier_url,
+            "proxy": item.proxy,
             "lifecycle_status": item.lifecycle_status,
             "validity_status": item.validity_status,
             "plan_state": item.plan_state,

@@ -97,6 +97,35 @@ def test_push_carries_registration_proxy(monkeypatch):
     assert data["accounts"][0]["proxy_key"] == expected_key
 
 
+def test_push_uses_each_accounts_own_proxy(monkeypatch):
+    monkeypatch.setattr(ae, "_sub2api_config", lambda: ("https://s.example.com", "ak"))
+    monkeypatch.setattr(
+        AccountExportsService,
+        "_load_chatgpt_items",
+        lambda self, selection: [
+            SimpleNamespace(email="a@x.com", proxy="socks5h://ua:pa@host-a:1111"),
+            SimpleNamespace(email="b@x.com", proxy="http://host-b:2222"),
+        ],
+    )
+    monkeypatch.setattr(ae, "_make_agent_identity_sub2api_json", lambda item: {"accounts": [{"name": item.email}]})
+
+    captured = {}
+    monkeypatch.setattr(
+        "requests.post",
+        lambda url, **kw: captured.update(body=kw["json"]) or FakeResponse(200, {"data": {}}),
+    )
+
+    # fallback proxy passed in, but each account's own proxy must win.
+    AccountExportsService().push_agent_identity_to_sub2api(_selection(), proxy="http://fallback:9999")
+
+    data = captured["body"]["data"]
+    keys = {p["proxy_key"] for p in data["proxies"]}
+    assert keys == {"socks5h|host-a|1111|ua|pa", "http|host-b|2222||"}
+    by_name = {a["name"]: a["proxy_key"] for a in data["accounts"]}
+    assert by_name["a@x.com"] == "socks5h|host-a|1111|ua|pa"
+    assert by_name["b@x.com"] == "http|host-b|2222||"
+
+
 def test_push_without_proxy_leaves_proxies_empty(monkeypatch):
     monkeypatch.setattr(ae, "_sub2api_config", lambda: ("https://s.example.com", "ak"))
     monkeypatch.setattr(

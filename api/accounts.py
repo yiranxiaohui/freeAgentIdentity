@@ -28,6 +28,7 @@ class AccountUpdateRequest(BaseModel):
     replace_provider_resources: bool = False
     primary_token: Optional[str] = None
     cashier_url: Optional[str] = None
+    proxy: Optional[str] = None
     region: Optional[str] = None
     trial_end_time: Optional[int] = None
 

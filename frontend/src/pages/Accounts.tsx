@@ -123,6 +123,11 @@ function getCashierUrl(acc: any) {
   return overview?.cashier_url || acc?.cashier_url || ''
 }
 
+function getProxy(acc: any) {
+  const overview = getAccountOverview(acc)
+  return overview?.proxy || acc?.proxy || ''
+}
+
 function getPrimaryToken(acc: any) {
   if (acc?.primary_token) return acc.primary_token
   const credential = getCredentials(acc).find((item: any) => item?.scope === 'platform' && item?.credential_type === 'token' && item?.value)
@@ -1288,6 +1293,7 @@ function DetailModal({ acc, onClose, onSave }: { acc: any; onClose: () => void; 
     lifecycle_status: getLifecycleStatus(acc),
     primary_token: getPrimaryToken(acc),
     cashier_url: getCashierUrl(acc),
+    proxy: getProxy(acc),
   })
   const [saving, setSaving] = useState(false)
   const overview = getAccountOverview(acc)
@@ -1454,6 +1460,13 @@ function DetailModal({ acc, onClose, onSave }: { acc: any; onClose: () => void; 
             <label className="text-xs text-[var(--text-muted)] block mb-1">试用链接</label>
             <textarea value={form.cashier_url} onChange={e => setForm(f => ({ ...f, cashier_url: e.target.value }))}
               rows={2} className="control-surface control-surface-mono resize-none" />
+          </div>
+          <div>
+            <label className="text-xs text-[var(--text-muted)] block mb-1">代理（导入 Sub2API 时随账号携带）</label>
+            <input value={form.proxy} onChange={e => setForm(f => ({ ...f, proxy: e.target.value }))}
+              spellCheck={false}
+              placeholder="socks5h://user:pass@host:port"
+              className="control-surface control-surface-mono w-full text-xs" />
           </div>
         </div>
         {/* ── Sticky Footer ── */}

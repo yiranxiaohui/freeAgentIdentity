@@ -633,6 +633,10 @@ def _execute_register_task(payload: dict[str, Any], logger: TaskLogger) -> None:
             if resolved_proxy:
                 logger.log(f"使用代理: {resolved_proxy}")
             account = platform.register(email=email, password=password)
+            # 把本次注册使用的代理绑定到账号，供后续导出/导入 Sub2API 时携带。
+            if resolved_proxy:
+                account.extra = dict(getattr(account, "extra", {}) or {})
+                account.extra.setdefault("proxy", resolved_proxy)
             saved_account = save_account(account)
             saved_account_id = int(saved_account.id)
             if resolved_proxy:

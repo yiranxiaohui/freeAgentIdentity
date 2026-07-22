@@ -560,8 +560,9 @@ class AccountExportsService:
         复用 Agent Identity 导出的单账号构建逻辑，合并成一个批量 payload 后
         POST 到 Sub2API 的 ``/api/v1/admin/accounts/data`` 接口（``x-api-key`` 鉴权）。
 
-        ``proxy`` 为注册所用的代理 URL；能解析时会作为 DataProxy 一并导入，
-        并给每个账号绑定对应的 ``proxy_key``（Sub2API 侧自动建/复用该代理）。
+        每个账号优先携带它自己绑定的代理（``item.proxy``，注册时写入、详情页可改）；
+        账号未绑定时回退到传入的 ``proxy``。不同账号的代理会各自作为 DataProxy 导入，
+        并给账号设置对应的 ``proxy_key``（Sub2API 侧自动建/复用该代理）。
         """
         import requests
 
@@ -575,29 +576,31 @@ class AccountExportsService:
 
         accounts: list[dict] = []
         build_errors: list[dict] = []
+        proxies_by_key: dict[str, dict] = {}
         for item in items:
             try:
                 payload = _make_agent_identity_sub2api_json(item)
-                accounts.extend(payload.get("accounts") or [])
+                item_accounts = list(payload.get("accounts") or [])
             except Exception as exc:  # noqa: BLE001
                 build_errors.append({"email": item.email, "error": str(exc)})
+                continue
+            item_proxy = str(getattr(item, "proxy", "") or "").strip() or proxy
+            parsed_proxy = _parse_proxy_for_sub2api(item_proxy)
+            for account in item_accounts:
+                if parsed_proxy:
+                    account["proxy_key"] = parsed_proxy["proxy_key"]
+                    proxies_by_key[parsed_proxy["proxy_key"]] = parsed_proxy
+                accounts.append(account)
 
         if not accounts:
             detail = "；".join(e["error"] for e in build_errors) or "无有效账号"
             raise ValueError(f"所有账号构建 Agent Identity 失败：{detail}")
 
-        proxies: list[dict] = []
-        parsed_proxy = _parse_proxy_for_sub2api(proxy)
-        if parsed_proxy:
-            proxies.append(parsed_proxy)
-            for account in accounts:
-                account["proxy_key"] = parsed_proxy["proxy_key"]
-
         data_payload = {
             "type": "sub2api-data",
             "version": 1,
             "exported_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "proxies": proxies,
+            "proxies": list(proxies_by_key.values()),
             "accounts": accounts,
         }
         try:
