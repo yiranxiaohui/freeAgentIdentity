@@ -13,7 +13,6 @@ import type { TranslationKey } from "@/lib/i18n";
 import Accounts from "@/pages/Accounts";
 import SettingsPage from "@/pages/SettingsPage";
 import UpdateBanner from "@/components/UpdateBanner";
-import WelcomeDialog from "@/components/WelcomeDialog";
 import {
   Moon,
   Settings as SettingsIcon,
@@ -235,7 +234,6 @@ function Shell({
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--bg-base)]">
-      <WelcomeDialog />
       <Sidebar
         theme={theme}
         toggleTheme={toggleTheme}
