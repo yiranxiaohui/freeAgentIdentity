@@ -61,6 +61,45 @@ class AccountsService:
     def delete_account(self, account_id: int) -> dict:
         return {"ok": self.repository.delete(account_id)}
 
+    def delete_invalid_accounts(self) -> dict:
+        """一键删除失效账号（validity/lifecycle 为 invalid），同时从 Sub2API 池删除。"""
+        from application.account_exports import _sub2api_config, delete_sub2api_account_by_email
+        from domain.accounts import AccountExportSelection
+
+        records = self.repository.select_for_export(
+            AccountExportSelection(platform="chatgpt", select_all=True, status_filter="invalid")
+        )
+        base_url, api_key = _sub2api_config()
+        remote_enabled = bool(base_url and api_key)
+
+        local_deleted = 0
+        remote_deleted = 0
+        remote_failed = 0
+        errors: list[str] = []
+        for rec in records:
+            # 先删远端（sub2api），best-effort；失败不影响本地删除。
+            if remote_enabled:
+                try:
+                    if delete_sub2api_account_by_email(base_url, api_key, rec.email):
+                        remote_deleted += 1
+                except Exception as exc:  # noqa: BLE001
+                    remote_failed += 1
+                    errors.append(f"{rec.email}: 远端删除失败 {exc}")
+            try:
+                if self.repository.delete(rec.id):
+                    local_deleted += 1
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{rec.email}: 本地删除失败 {exc}")
+
+        return {
+            "total": len(records),
+            "local_deleted": local_deleted,
+            "remote_deleted": remote_deleted,
+            "remote_failed": remote_failed,
+            "remote_enabled": remote_enabled,
+            "errors": errors[:20],
+        }
+
     def import_accounts(self, platform: str, lines: list[str]) -> dict:
         parsed: list[AccountImportLine] = []
         csv_header: list[str] | None = None

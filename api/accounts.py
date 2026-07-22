@@ -229,6 +229,11 @@ def update_account(account_id: int, body: AccountUpdateRequest):
     return item
 
 
+@router.post("/delete-invalid")
+def delete_invalid_accounts():
+    return service.delete_invalid_accounts()
+
+
 @router.delete("/{account_id}")
 def delete_account(account_id: int):
     result = service.delete_account(account_id)

@@ -281,6 +281,39 @@ def _bind_accounts_to_group(base_url: str, api_key: str, emails: list[str], grou
     return len(account_ids)
 
 
+def delete_sub2api_account_by_email(base_url: str, api_key: str, email: str) -> bool:
+    """按邮箱在 Sub2API 里找到账号并删除。找到并删成功返回 True；没找到返回 False。"""
+    import requests
+
+    email = str(email or "").strip()
+    if not email:
+        return False
+    headers = {"x-api-key": api_key}
+    resp = requests.get(
+        f"{base_url}/api/v1/admin/accounts",
+        headers=headers,
+        params={"search": email, "page_size": 50},
+        timeout=20,
+    )
+    resp.raise_for_status()
+    account_id = None
+    for item in _extract_account_list(resp.json()):
+        name = str(item.get("name") or item.get("email") or "").strip()
+        if name == email and item.get("id") is not None:
+            account_id = item["id"]
+            break
+    if account_id is None:
+        return False
+    dresp = requests.delete(
+        f"{base_url}/api/v1/admin/accounts/{account_id}",
+        headers=headers,
+        timeout=20,
+    )
+    if dresp.status_code >= 400:
+        raise RuntimeError(f"HTTP {dresp.status_code}: {str(dresp.text or '')[:150]}")
+    return True
+
+
 def list_sub2api_groups() -> list[dict]:
     """拉取 Sub2API 分组列表 [{id, name}]，供设置页下拉选择。"""
     import requests

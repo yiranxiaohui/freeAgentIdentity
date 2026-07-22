@@ -1726,6 +1726,7 @@ export default function Accounts() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [actionResult, setActionResult] = useState<{ title: string; payload: any } | null>(null)
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [deletingInvalid, setDeletingInvalid] = useState(false)
   const [batchRefreshing, setBatchRefreshing] = useState(false)
   const [batchTask, setBatchTask] = useState<{ taskId: string; title: string } | null>(null)
   const [batchTaskStatus, setBatchTaskStatus] = useState<string | null>(null)
@@ -1952,6 +1953,32 @@ export default function Accounts() {
             <Button variant="ghost" size="sm" onClick={() => load()} disabled={loading} className="h-7 w-7 p-0 text-[var(--text-muted)] hover:text-[var(--text-primary)]">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             </Button>
+            {tab === 'chatgpt' && visibleInvalid > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={deletingInvalid || loading}
+                className="h-7 px-2.5 text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10"
+                onClick={async () => {
+                  if (!confirm(`确认删除全部 ${visibleInvalid} 个失效账号？同时会从 Sub2API 池删除对应账号。`)) return
+                  setDeletingInvalid(true)
+                  try {
+                    const res = await apiFetch('/accounts/delete-invalid', { method: 'POST' })
+                    const parts = [`已删除失效账号 ${res.local_deleted}/${res.total}`]
+                    if (res.remote_enabled) parts.push(`Sub2API 删除 ${res.remote_deleted}${res.remote_failed ? `（${res.remote_failed} 失败）` : ''}`)
+                    window.alert(parts.join('；'))
+                    load()
+                  } catch (e: any) {
+                    window.alert(e?.message || '删除失败')
+                  } finally {
+                    setDeletingInvalid(false)
+                  }
+                }}
+              >
+                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                {deletingInvalid ? '删除中...' : `删除失效(${visibleInvalid})`}
+              </Button>
+            )}
             {selectedCount > 0 && (
               <Button
                 size="sm"
