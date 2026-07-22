@@ -161,3 +161,7 @@ npm run build
 ## 许可
 
 本项目使用 AGPL-3.0 许可证。项目基于 `lxf746/any-auto-register` 的插件化注册框架二次开发，感谢原作者的开源工作。
+
+## 友情链接
+
+- [LINUX DO - 新的理想型社区](https://linux.do/)
