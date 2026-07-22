@@ -1047,6 +1047,24 @@ function ActionMenu({
       })
   }
 
+  const importSub2api = () => {
+    setRunning('__sub2api_import')
+    apiFetch('/accounts/export/sub2api-agent-identity/import', {
+      method: 'POST',
+      body: JSON.stringify({ platform: 'chatgpt', ids: [acc.id], select_all: false }),
+    })
+      .then((resp) => {
+        const created = resp?.sub2api_result?.account_created
+        const suffix = typeof created === 'number' ? `（${created}）` : ''
+        setToast({ type: 'success', text: `已导入 Sub2API${suffix}` })
+        onChanged()
+      })
+      .catch((error: any) => {
+        setToast({ type: 'error', text: error?.message || '导入 Sub2API 失败' })
+      })
+      .finally(() => setRunning(null))
+  }
+
   const updateMenuPosition = useCallback(() => {
     const trigger = triggerRef.current
     if (!trigger) return
@@ -1229,6 +1247,12 @@ function ActionMenu({
                   {running === a.id ? '执行中...' : a.label}
                 </button>
               ))}
+              <button
+                onClick={() => { setOpen(false); importSub2api() }}
+                disabled={!!running}
+                className="w-full px-3 py-2 text-left text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] disabled:opacity-50">
+                {running === '__sub2api_import' ? '导入中...' : '导入 Sub2API'}
+              </button>
               <div className="my-1 border-t border-[var(--border)]/70" />
               <button
                 onClick={() => {
