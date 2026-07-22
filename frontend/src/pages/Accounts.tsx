@@ -1673,6 +1673,19 @@ function AutoRegisterModal({ onClose, onChanged }: { onClose: () => void; onChan
           </label>
 
           {error && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
+
+          <div>
+            <label className="text-xs text-[var(--text-muted)] block mb-1.5">当前批次日志</label>
+            {status?.current_task_id ? (
+              <div className="h-72 overflow-hidden rounded-xl border border-[var(--border)]">
+                <TaskLogPanel key={status.current_task_id} taskId={status.current_task_id} onDone={() => onChanged()} />
+              </div>
+            ) : (
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-hover)] px-3 py-4 text-center text-xs text-[var(--text-muted)]">
+                {enabled ? '等待下一批开始…' : '未运行，开始后这里显示当前批次的实时日志'}
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex gap-3 px-6 py-4 border-t border-[var(--border)]">
           {enabled ? (
