@@ -208,6 +208,12 @@ function RegisterModal({
     state: 'idle' | 'exporting' | 'success' | 'error'
     message: string
   }>({ state: 'idle', message: '' })
+  const [autoImportSub2api, setAutoImportSub2api] = useState(false)
+  const [sub2apiImport, setSub2apiImport] = useState<{
+    state: 'idle' | 'importing' | 'success' | 'error'
+    message: string
+  }>({ state: 'idle', message: '' })
+  const autoImportStartedRef = useRef(false)
   const [startError, setStartError] = useState('')
   const [selection, setSelection] = useState({
     identityProvider: 'mailbox',
@@ -323,6 +329,8 @@ function RegisterModal({
     setStartError('')
     autoDownloadStartedRef.current = false
     setAgentIdentityDownload({ state: 'idle', message: '' })
+    autoImportStartedRef.current = false
+    setSub2apiImport({ state: 'idle', message: '' })
     try {
       const extra: Record<string, any> = {
         identity_provider: selection.identityProvider,
@@ -362,49 +370,68 @@ function RegisterModal({
     setDone(true)
     onDone()
 
-    if (
-      !autoDownloadAgentIdentity ||
-      status !== 'succeeded' ||
-      !taskId ||
-      autoDownloadStartedRef.current
-    ) {
+    if (status !== 'succeeded' || !taskId) {
       return
     }
 
-    autoDownloadStartedRef.current = true
-    setAgentIdentityDownload({
-      state: 'exporting',
-      message: t('accounts.agentIdentityExporting'),
-    })
-    try {
+    let cachedIds: number[] | null = null
+    const resolveAccountIds = async (): Promise<number[]> => {
+      if (cachedIds) return cachedIds
       const task = await apiFetch(`/tasks/${taskId}`)
-      const accountIds = task?.data?.account_ids || task?.result?.data?.account_ids || []
-      if (!Array.isArray(accountIds) || accountIds.length === 0) {
+      const ids = task?.data?.account_ids || task?.result?.data?.account_ids || []
+      if (!Array.isArray(ids) || ids.length === 0) {
         throw new Error(t('accounts.agentIdentityNoSuccessfulAccounts'))
       }
+      cachedIds = ids
+      return ids
+    }
 
-      const { blob, filename } = await apiDownload(
-        '/accounts/export/sub2api-agent-identity',
-        {
+    if (autoDownloadAgentIdentity && !autoDownloadStartedRef.current) {
+      autoDownloadStartedRef.current = true
+      setAgentIdentityDownload({
+        state: 'exporting',
+        message: t('accounts.agentIdentityExporting'),
+      })
+      try {
+        const accountIds = await resolveAccountIds()
+        const { blob, filename } = await apiDownload(
+          '/accounts/export/sub2api-agent-identity',
+          {
+            method: 'POST',
+            body: JSON.stringify({ platform: 'chatgpt', ids: accountIds, select_all: false }),
+          },
+        )
+        triggerBrowserDownload(blob, filename)
+        setAgentIdentityDownload({ state: 'success', message: t('accounts.agentIdentityExported') })
+      } catch (error: any) {
+        const detail = error?.message || String(error)
+        setAgentIdentityDownload({
+          state: 'error',
+          message: `${t('accounts.agentIdentityExportFailed')}: ${detail}`,
+        })
+      }
+    }
+
+    if (autoImportSub2api && !autoImportStartedRef.current) {
+      autoImportStartedRef.current = true
+      setSub2apiImport({ state: 'importing', message: t('accounts.sub2apiImporting') })
+      try {
+        const accountIds = await resolveAccountIds()
+        const res = await apiFetch('/accounts/export/sub2api-agent-identity/import', {
           method: 'POST',
-          body: JSON.stringify({
-            platform: 'chatgpt',
-            ids: accountIds,
-            select_all: false,
-          }),
-        },
-      )
-      triggerBrowserDownload(blob, filename)
-      setAgentIdentityDownload({
-        state: 'success',
-        message: t('accounts.agentIdentityExported'),
-      })
-    } catch (error: any) {
-      const detail = error?.message || String(error)
-      setAgentIdentityDownload({
-        state: 'error',
-        message: `${t('accounts.agentIdentityExportFailed')}: ${detail}`,
-      })
+          body: JSON.stringify({ platform: 'chatgpt', ids: accountIds, select_all: false }),
+        })
+        const created = res?.sub2api_result?.account_created
+        const failed = res?.sub2api_result?.account_failed
+        const suffix =
+          typeof created === 'number'
+            ? ` (${created}${typeof failed === 'number' && failed > 0 ? `, ${failed} failed` : ''})`
+            : ''
+        setSub2apiImport({ state: 'success', message: `${t('accounts.sub2apiImported')}${suffix}` })
+      } catch (error: any) {
+        const detail = error?.message || String(error)
+        setSub2apiImport({ state: 'error', message: `${t('accounts.sub2apiImportFailed')}: ${detail}` })
+      }
     }
   }
 
@@ -528,6 +555,23 @@ function RegisterModal({
                   </span>
                 </label>
 
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-pane)]/45 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={autoImportSub2api}
+                    onChange={(event) => setAutoImportSub2api(event.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-[var(--text-primary)]">
+                      {t('accounts.autoImportSub2api')}
+                    </span>
+                    <span className="mt-1 block text-xs text-[var(--text-muted)]">
+                      {t('accounts.autoImportSub2apiHint')}
+                    </span>
+                  </span>
+                </label>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-[var(--text-muted)] block mb-1">{t('accounts.registrationCount')}</label>
@@ -600,6 +644,17 @@ function RegisterModal({
                       : 'border-sky-500/30 bg-sky-500/10 text-sky-300'
                 }`}>
                   {agentIdentityDownload.message}
+                </div>
+              ) : null}
+              {sub2apiImport.state !== 'idle' ? (
+                <div className={`rounded-lg border px-3 py-2 text-xs ${
+                  sub2apiImport.state === 'success'
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                    : sub2apiImport.state === 'error'
+                      ? 'border-red-500/30 bg-red-500/10 text-red-300'
+                      : 'border-sky-500/30 bg-sky-500/10 text-sky-300'
+                }`}>
+                  {sub2apiImport.message}
                 </div>
               ) : null}
             </div>

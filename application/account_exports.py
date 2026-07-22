@@ -161,6 +161,17 @@ def _generate_cpa_token_json(item: AccountRecord) -> dict:
     return generate_token_json(_to_cpa_account(item))
 
 
+def _sub2api_config() -> tuple[str, str]:
+    """读取 Sub2API 集成配置：优先「通用设置」里的值，其次 .env 环境变量。"""
+    import os
+
+    from core.config_store import config_store
+
+    base_url = str(config_store.get("sub2api_base_url", "") or os.environ.get("SUB2API_BASE_URL", "")).strip().rstrip("/")
+    api_key = str(config_store.get("sub2api_api_key", "") or os.environ.get("SUB2API_API_KEY", "")).strip()
+    return base_url, api_key
+
+
 def _make_sub2api_json(item: AccountRecord) -> dict:
     payload = _chatgpt_export_payload(item)
     return {
@@ -499,6 +510,67 @@ class AccountExportsService:
             media_type="application/zip",
             content=buffer,
         )
+
+    def push_agent_identity_to_sub2api(self, selection: AccountExportSelection) -> dict:
+        """把选中账号的 Agent Identity 直接导入到 Sub2API 账号池。
+
+        复用 Agent Identity 导出的单账号构建逻辑，合并成一个批量 payload 后
+        POST 到 Sub2API 的 ``/api/v1/admin/accounts/data`` 接口（``x-api-key`` 鉴权）。
+        """
+        import requests
+
+        base_url, api_key = _sub2api_config()
+        if not base_url or not api_key:
+            raise ValueError("未配置 Sub2API 地址或 API Key，请在「通用设置 → Sub2API 集成」填写")
+
+        items = self._load_chatgpt_items(selection)
+        if not items:
+            raise ValueError("没有可导入的账号")
+
+        accounts: list[dict] = []
+        build_errors: list[dict] = []
+        for item in items:
+            try:
+                payload = _make_agent_identity_sub2api_json(item)
+                accounts.extend(payload.get("accounts") or [])
+            except Exception as exc:  # noqa: BLE001
+                build_errors.append({"email": item.email, "error": str(exc)})
+
+        if not accounts:
+            detail = "；".join(e["error"] for e in build_errors) or "无有效账号"
+            raise ValueError(f"所有账号构建 Agent Identity 失败：{detail}")
+
+        data_payload = {
+            "type": "sub2api-data",
+            "version": 1,
+            "exported_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "proxies": [],
+            "accounts": accounts,
+        }
+        try:
+            response = requests.post(
+                f"{base_url}/api/v1/admin/accounts/data",
+                headers={"x-api-key": api_key, "Content-Type": "application/json"},
+                json={"data": data_payload, "skip_default_group_bind": True},
+                timeout=30,
+            )
+        except requests.RequestException as exc:
+            raise RuntimeError(f"连接 Sub2API 失败：{exc}") from exc
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"Sub2API 导入失败 (HTTP {response.status_code}): {str(response.text or '')[:300]}"
+            )
+        try:
+            body = response.json()
+        except Exception:  # noqa: BLE001
+            body = {}
+        result = body.get("data") if isinstance(body, dict) else None
+        return {
+            "pushed": len(accounts),
+            "build_failed": len(build_errors),
+            "build_errors": build_errors,
+            "sub2api_result": result if isinstance(result, dict) else body,
+        }
 
     def export_chatgpt_agent_identity_sub2api(
         self, selection: AccountExportSelection

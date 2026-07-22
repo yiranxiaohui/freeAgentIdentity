@@ -98,6 +98,11 @@ const ZH_MESSAGES = {
   "settings.defaultStrategy.title": "默认注册策略",
   "settings.defaultStrategy.desc":
     "这里配置的是默认行为，账号列表和注册页会直接复用这些设置。",
+  "settings.sub2api.title": "Sub2API 集成",
+  "settings.sub2api.desc":
+    "配置后，注册页可勾选“注册成功后自动导入 Sub2API”，把账号直接推送到 Sub2API 账号池。",
+  "settings.sub2api.baseUrl": "Sub2API 地址",
+  "settings.sub2api.apiKey": "Admin API Key",
   "settings.defaultIdentity": "默认注册身份",
   "settings.defaultOauth": "默认第三方入口",
   "settings.defaultExecutor": "默认执行方式",
@@ -287,6 +292,12 @@ const ZH_MESSAGES = {
   "accounts.autoDownloadAgentIdentity": "注册成功后直接下载 Agent Identity",
   "accounts.autoDownloadAgentIdentityHint":
     "仅导出本次成功账号；单个账号下载 JSON，多个账号下载 ZIP，可导入 Sub2API。",
+  "accounts.autoImportSub2api": "注册成功后自动导入 Sub2API",
+  "accounts.autoImportSub2apiHint":
+    "把本次成功账号的 Agent Identity 直接推送到 Sub2API 账号池（需先在 通用设置 → Sub2API 集成 配置地址与 API Key）。",
+  "accounts.sub2apiImporting": "正在导入 Sub2API…",
+  "accounts.sub2apiImported": "已导入 Sub2API",
+  "accounts.sub2apiImportFailed": "导入 Sub2API 失败",
   "accounts.agentIdentityExporting": "正在生成 Agent Identity 文件…",
   "accounts.agentIdentityExported": "Agent Identity 已下载到默认下载文件夹",
   "accounts.agentIdentityExportFailed": "Agent Identity 导出失败",
@@ -481,6 +492,11 @@ const EN_MESSAGES: Record<TranslationKey, string> = {
   "settings.defaultStrategy.title": "Default Registration Strategy",
   "settings.defaultStrategy.desc":
     "These defaults are reused by the account list and registration page.",
+  "settings.sub2api.title": "Sub2API Integration",
+  "settings.sub2api.desc":
+    "Once set, the registration page can auto-import accounts into your Sub2API pool.",
+  "settings.sub2api.baseUrl": "Sub2API URL",
+  "settings.sub2api.apiKey": "Admin API Key",
   "settings.defaultIdentity": "Default Identity",
   "settings.defaultOauth": "Default OAuth Entry",
   "settings.defaultExecutor": "Default Executor",
@@ -680,6 +696,12 @@ const EN_MESSAGES: Record<TranslationKey, string> = {
   "accounts.autoDownloadAgentIdentity": "Download Agent Identity after registration",
   "accounts.autoDownloadAgentIdentityHint":
     "Exports only accounts created successfully by this task: JSON for one account or ZIP for multiple accounts, ready for Sub2API.",
+  "accounts.autoImportSub2api": "Auto-import to Sub2API after registration",
+  "accounts.autoImportSub2apiHint":
+    "Pushes this task's successful accounts (Agent Identity) straight into your Sub2API pool. Configure the URL and API key under Settings → Sub2API Integration first.",
+  "accounts.sub2apiImporting": "Importing into Sub2API…",
+  "accounts.sub2apiImported": "Imported into Sub2API",
+  "accounts.sub2apiImportFailed": "Sub2API import failed",
   "accounts.agentIdentityExporting": "Generating the Agent Identity file…",
   "accounts.agentIdentityExported": "Agent Identity was downloaded to the default downloads folder",
   "accounts.agentIdentityExportFailed": "Agent Identity export failed",

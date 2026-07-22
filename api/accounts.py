@@ -144,6 +144,22 @@ def export_accounts_sub2api_agent_identity(body: BatchExportRequest):
     return _stream_artifact(artifact)
 
 
+@router.post("/export/sub2api-agent-identity/import")
+def import_accounts_to_sub2api(body: BatchExportRequest):
+    try:
+        return exports_service.push_agent_identity_to_sub2api(
+            AccountExportSelection(
+                platform=body.platform,
+                ids=body.ids,
+                select_all=body.select_all,
+                status_filter=body.status_filter or "",
+                search_filter=body.search_filter or "",
+            )
+        )
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
 @router.post("/export/cpa")
 def export_accounts_cpa(body: BatchExportRequest):
     try:

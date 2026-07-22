@@ -212,6 +212,41 @@ function GeneralTab({
         </div>
       </SettingGroup>
 
+      <div className="border-t border-[var(--border)]" />
+
+      <SettingGroup
+        title={t("settings.sub2api.title")}
+        desc={t("settings.sub2api.desc")}
+      >
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] divide-y divide-[var(--border)]/50">
+          <SettingRow label={t("settings.sub2api.baseUrl")}>
+            <input
+              type="text"
+              value={form.sub2api_base_url || ""}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, sub2api_base_url: e.target.value }))
+              }
+              placeholder="https://sub2api.example.com"
+              spellCheck={false}
+              className="control-surface w-full font-mono text-xs"
+            />
+          </SettingRow>
+          <SettingRow label={t("settings.sub2api.apiKey")}>
+            <input
+              type="password"
+              value={form.sub2api_api_key || ""}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, sub2api_api_key: e.target.value }))
+              }
+              placeholder="x-api-key"
+              spellCheck={false}
+              autoComplete="off"
+              className="control-surface w-full font-mono text-xs"
+            />
+          </SettingRow>
+        </div>
+      </SettingGroup>
+
       <Button onClick={save} disabled={saving} className="w-full">
         <Save className="mr-2 h-4 w-4" />
         {saved
