@@ -60,3 +60,34 @@ def test_loop_stops_at_target(monkeypatch):
     assert config_store.get("auto_register_done") == "2"
     assert config_store.get("auto_register_enabled") == ""  # auto-disabled at target
     assert ctrl.status()["running"] is False
+
+
+def test_stop_cancels_current_task(monkeypatch):
+    cancelled = []
+    monkeypatch.setattr(tk, "request_cancel", lambda tid: cancelled.append(tid))
+
+    ctrl = AutoRegisterController()
+    ctrl._ensure_thread = lambda: None
+    ctrl._current_task_id = "task-live"
+    ctrl.start({"batch": 1})
+    ctrl.stop()
+
+    assert cancelled == ["task-live"]
+    assert config_store.get("auto_register_enabled") == ""
+
+
+def test_wait_task_cancels_on_timeout(monkeypatch):
+    monkeypatch.setattr(
+        tq.TasksQueryService, "get_task", lambda self, tid: {"status": "running", "success": 0}
+    )
+    cancelled = []
+    monkeypatch.setattr(tk, "request_cancel", lambda tid: cancelled.append(tid))
+
+    config_store.set("auto_register_enabled", "1")
+    ctrl = AutoRegisterController()
+    ctrl._sleep = lambda s: None  # no real waiting
+
+    result = ctrl._wait_task("stuck-task", timeout=0.001)
+
+    assert result == 0
+    assert cancelled == ["stuck-task"]

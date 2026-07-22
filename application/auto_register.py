@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 
 from core.config_store import config_store
 
@@ -74,8 +75,20 @@ class AutoRegisterController:
 
     def stop(self) -> dict:
         config_store.set("auto_register_enabled", "")
+        # 一并取消正在跑的那批，别让它继续占用平台槽位。
+        self._cancel(self._current_task_id)
         self._wake.set()
         return self.status()
+
+    def _cancel(self, task_id: str) -> None:
+        if not task_id:
+            return
+        try:
+            from application.tasks import request_cancel
+
+            request_cancel(task_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("取消后台注册任务失败 %s: %s", task_id, exc)
 
     def resume_if_enabled(self) -> None:
         if self._enabled():
@@ -111,7 +124,10 @@ class AutoRegisterController:
                     break
                 try:
                     task_id = self._create_round(n, cfg["concurrency"], cfg["executor_type"], cfg["auto_import"])
-                    success = self._wait_task(task_id)
+                    # 批次超时保护：每个账号给 120s，最少 5 分钟。超时则取消该批，
+                    # 释放平台槽位、继续下一批，避免一个卡死的批次把队列堵死。
+                    timeout = max(300, n * 120)
+                    success = self._wait_task(task_id, timeout)
                     config_store.set("auto_register_done", str(done + max(success, 0)))
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("后台自动注册一轮失败: %s", exc)
@@ -149,16 +165,23 @@ class AutoRegisterController:
         self._current_task_id = task_id
         return task_id
 
-    def _wait_task(self, task_id: str) -> int:
+    def _wait_task(self, task_id: str, timeout: float = 0) -> int:
         from application.tasks_query import TasksQueryService
 
         query = TasksQueryService()
+        deadline = time.monotonic() + timeout if timeout > 0 else None
         while self._enabled():
             info = query.get_task(task_id)
             if not info:
                 return 0
             if str(info.get("status") or "") in _TERMINAL:
                 return _int(info.get("success"), 0)
+            if deadline is not None and time.monotonic() > deadline:
+                logger.warning("后台自动注册批次超时(%ss)，取消任务 %s", int(timeout), task_id)
+                self._cancel(task_id)
+                # 给它一点时间转入终态，然后按已成功数计入。
+                self._sleep(3)
+                return _int((query.get_task(task_id) or {}).get("success"), 0)
             self._sleep(2)
         return 0
 
