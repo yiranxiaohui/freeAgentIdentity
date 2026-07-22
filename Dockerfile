@@ -54,9 +54,8 @@ COPY --from=frontend-builder /app/static ./static
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-# APP_PASSWORD: 运行时通过 -e APP_PASSWORD=xxx 设置
-# 不设置则无密码保护（适用于本地使用）
-ENV APP_PASSWORD=""
+# APP_PASSWORD 在运行时通过 -e / env_file 注入；不注入则无密码保护（适用于本地使用）。
+# 不在此用 ENV 声明，避免 Docker 的 SecretsUsedInArgOrEnv 告警。
 
 EXPOSE 8000 6080 8889
 
