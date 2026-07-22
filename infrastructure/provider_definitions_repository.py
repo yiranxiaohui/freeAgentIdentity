@@ -9,7 +9,7 @@ from core.db import ProviderDefinitionModel, ProviderSettingModel, engine
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_MAILBOX_PROVIDER_KEYS = ("local_ms_pool", "api_mailbox")
+SUPPORTED_MAILBOX_PROVIDER_KEYS = ("local_ms_pool", "api_mailbox", "anymail")
 
 
 def _utcnow() -> datetime:
@@ -112,6 +112,86 @@ _BUILTIN_DEFINITIONS: list[dict] = [
                 "type": "toggle",
                 "category": "connection",
                 "hint": "测试时可开启；批量注册建议关闭。",
+            },
+        ],
+    },
+    {
+        "provider_type": "mailbox",
+        "provider_key": "anymail",
+        "label": "AnyMail 接码",
+        "description": "对接自建 AnyMail（Cloudflare Workers）服务，按需创建随机域名邮箱并轮询取码，用完即弃",
+        "driver_type": "anymail",
+        "default_auth_mode": "apikey",
+        "enabled": True,
+        "category": "custom",
+        "auth_modes": [{"value": "apikey", "label": "API Key"}],
+        "fields": [
+            {
+                "key": "anymail_base_url",
+                "label": "服务地址",
+                "placeholder": "https://mail.example.com",
+                "category": "connection",
+                "hint": "AnyMail 部署的根地址，不带结尾斜杠。",
+            },
+            {
+                "key": "anymail_api_key",
+                "label": "API Key",
+                "secret": True,
+                "category": "auth",
+                "placeholder": "ak_xxxxxxxx",
+                "hint": "在 AnyMail 后台 /api-keys 创建，需勾选 emails:read + accounts:write，并限定账号类型为 Domain。",
+            },
+            {
+                "key": "anymail_domain",
+                "label": "固定域名",
+                "placeholder": "留空则自动调用 /api/domains 拉取",
+                "category": "connection",
+                "hint": "可选。填了就用这个域名建邮箱；留空则从 AnyMail 已配置域名里自动取第一个（需 key 含 domains:read）。",
+            },
+            {
+                "key": "anymail_email_prefix",
+                "label": "邮箱前缀",
+                "placeholder": "u",
+                "default_value": "u",
+                "category": "connection",
+                "hint": "生成邮箱形如 前缀_随机串@域名；仅保留字母数字。",
+            },
+            {
+                "key": "anymail_code_pattern",
+                "label": "验证码正则",
+                "placeholder": "\\d{6}",
+                "default_value": "\\d{6}",
+                "category": "connection",
+                "hint": "交给服务端 code_regex 提取；有捕获组则取第 1 组。可被注册任务的 code_pattern 覆盖。",
+            },
+            {
+                "key": "anymail_expires_minutes",
+                "label": "邮箱有效期（分钟）",
+                "placeholder": "0",
+                "default_value": "0",
+                "category": "connection",
+                "hint": "为新建邮箱设置 expires_at，AnyMail cron 每分钟自动清理过期邮箱。0 或留空表示永久。",
+            },
+            {
+                "key": "anymail_delete_after_use",
+                "label": "取码后回收邮箱",
+                "type": "toggle",
+                "category": "connection",
+                "hint": "拿到验证码/链接后立即 DELETE 回收该邮箱。批量接码建议开启。",
+            },
+            {
+                "key": "anymail_poll_interval",
+                "label": "轮询间隔秒",
+                "placeholder": "3",
+                "default_value": "3",
+                "category": "connection",
+            },
+            {
+                "key": "anymail_request_timeout",
+                "label": "单次请求超时秒",
+                "placeholder": "15",
+                "default_value": "15",
+                "category": "connection",
             },
         ],
     },

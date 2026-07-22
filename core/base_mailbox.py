@@ -150,9 +150,28 @@ def _create_api_mailbox(extra: dict, proxy: str | None) -> BaseMailbox:
     )
 
 
+def _create_anymail(extra: dict, proxy: str | None) -> BaseMailbox:
+    from core.anymail_mailbox import AnyMailPool
+
+    return AnyMailPool(
+        base_url=extra.get("anymail_base_url", ""),
+        api_key=extra.get("anymail_api_key", ""),
+        domain=extra.get("anymail_domain", ""),
+        email_prefix=extra.get("anymail_email_prefix", "u"),
+        code_pattern=extra.get("anymail_code_pattern", ""),
+        expires_minutes=extra.get("anymail_expires_minutes", 0),
+        delete_after_use=str(extra.get("anymail_delete_after_use", "")).strip().lower()
+        in {"1", "true", "yes", "on"},
+        poll_interval=extra.get("anymail_poll_interval", 3),
+        request_timeout=extra.get("anymail_request_timeout", 15),
+        proxy=proxy,
+    )
+
+
 MAILBOX_FACTORY_REGISTRY = {
     "local_ms_pool": _create_local_ms_pool,
     "api_mailbox": _create_api_mailbox,
+    "anymail": _create_anymail,
 }
 
 
