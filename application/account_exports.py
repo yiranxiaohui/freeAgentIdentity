@@ -280,12 +280,22 @@ def _make_agent_identity_sub2api_json(item: AccountRecord) -> dict:
             DEFAULT_CODEX_BASE_URL,
             Error as AgentIdentityError,
             certificate_to_sub2api_export,
+            get_thread_proxy_url,
             register_identity,
+            set_thread_proxy_url,
         )
     except ImportError as exc:
         raise ValueError(
             "Agent Identity 导出依赖 PyNaCl，请先安装 requirements.txt"
         ) from exc
+
+    # 铸造 Agent Identity 会请求 OpenAI（auth.openai.com/api/accounts/v1/agent/register）。
+    # 必须走账号注册时用的同一代理，否则会用服务器本机 IP，触发
+    # unsupported_country_region_territory (HTTP 403)。register_identity 只认线程局部代理。
+    account_proxy = str(getattr(item, "proxy", "") or "").strip()
+    previous_proxy = get_thread_proxy_url()
+    if account_proxy:
+        set_thread_proxy_url(account_proxy)
 
     try:
         certificate = register_identity(
@@ -296,6 +306,8 @@ def _make_agent_identity_sub2api_json(item: AccountRecord) -> dict:
         return certificate_to_sub2api_export(certificate)
     except AgentIdentityError as exc:
         raise ValueError(f"账号 {item.email} 注册 Agent Identity 失败：{exc}") from exc
+    finally:
+        set_thread_proxy_url(previous_proxy)
 
 
 def _make_cockpit_token(item: AccountRecord) -> dict:
