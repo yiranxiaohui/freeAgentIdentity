@@ -9,7 +9,7 @@ from core.db import ProviderDefinitionModel, ProviderSettingModel, engine
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_MAILBOX_PROVIDER_KEYS = ("local_ms_pool", "api_mailbox", "anymail")
+SUPPORTED_MAILBOX_PROVIDER_KEYS = ("local_ms_pool", "api_mailbox", "anymail", "cftemp")
 
 
 def _utcnow() -> datetime:
@@ -187,6 +187,76 @@ _BUILTIN_DEFINITIONS: list[dict] = [
             },
             {
                 "key": "anymail_request_timeout",
+                "label": "单次请求超时秒",
+                "placeholder": "15",
+                "default_value": "15",
+                "category": "connection",
+            },
+        ],
+    },
+    {
+        "provider_type": "mailbox",
+        "provider_key": "cftemp",
+        "label": "Cloudflare 临时邮箱接码",
+        "description": "对接自建 cloudflare_temp_email（dreamhunter2333）服务，按需创建临时地址并轮询取码，用完即弃",
+        "driver_type": "cftemp",
+        "default_auth_mode": "none",
+        "enabled": True,
+        "category": "custom",
+        "auth_modes": [{"value": "none", "label": "无（每地址自带 JWT）"}],
+        "fields": [
+            {
+                "key": "cftemp_base_url",
+                "label": "服务地址",
+                "placeholder": "https://mail.example.com",
+                "category": "connection",
+                "hint": "cloudflare_temp_email 前端/API 根地址，不带结尾斜杠。",
+            },
+            {
+                "key": "cftemp_domain",
+                "label": "邮箱域名",
+                "placeholder": "留空则自动取 /api/settings 的第一个域名",
+                "category": "connection",
+                "hint": "可选。填了就用这个域名建地址；留空则自动拉取实例已配置的域名。",
+            },
+            {
+                "key": "cftemp_email_prefix",
+                "label": "地址前缀",
+                "placeholder": "u",
+                "default_value": "u",
+                "category": "connection",
+                "hint": "生成地址形如 前缀+随机串@域名；仅保留字母数字。",
+            },
+            {
+                "key": "cftemp_cf_token",
+                "label": "Turnstile Token",
+                "secret": True,
+                "category": "auth",
+                "hint": "可选。仅当实例在「创建地址」开启了 Cloudflare Turnstile 才需要；自动化建议在实例侧关闭。",
+            },
+            {
+                "key": "cftemp_code_pattern",
+                "label": "验证码正则",
+                "placeholder": "留空=智能提取（推荐）",
+                "category": "connection",
+                "hint": "留空用内置智能提取（跳过 #202123 色值、剥离 URL/邮箱、优先带标签的码）。可被注册任务的 code_pattern 覆盖。",
+            },
+            {
+                "key": "cftemp_delete_after_use",
+                "label": "取码后回收地址",
+                "type": "toggle",
+                "category": "connection",
+                "hint": "拿到验证码/链接后立即删除该临时地址。批量接码建议开启。",
+            },
+            {
+                "key": "cftemp_poll_interval",
+                "label": "轮询间隔秒",
+                "placeholder": "1.5",
+                "default_value": "1.5",
+                "category": "connection",
+            },
+            {
+                "key": "cftemp_request_timeout",
                 "label": "单次请求超时秒",
                 "placeholder": "15",
                 "default_value": "15",

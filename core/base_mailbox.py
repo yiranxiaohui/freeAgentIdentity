@@ -168,10 +168,28 @@ def _create_anymail(extra: dict, proxy: str | None) -> BaseMailbox:
     )
 
 
+def _create_cftemp(extra: dict, proxy: str | None) -> BaseMailbox:
+    from core.cftemp_mailbox import CloudflareTempEmailPool
+
+    return CloudflareTempEmailPool(
+        base_url=extra.get("cftemp_base_url", ""),
+        domain=extra.get("cftemp_domain", ""),
+        email_prefix=extra.get("cftemp_email_prefix", "u"),
+        cf_token=extra.get("cftemp_cf_token", ""),
+        code_pattern=extra.get("cftemp_code_pattern", ""),
+        delete_after_use=str(extra.get("cftemp_delete_after_use", "")).strip().lower()
+        in {"1", "true", "yes", "on"},
+        poll_interval=extra.get("cftemp_poll_interval", 1.5),
+        request_timeout=extra.get("cftemp_request_timeout", 15),
+        proxy=proxy,
+    )
+
+
 MAILBOX_FACTORY_REGISTRY = {
     "local_ms_pool": _create_local_ms_pool,
     "api_mailbox": _create_api_mailbox,
     "anymail": _create_anymail,
+    "cftemp": _create_cftemp,
 }
 
 
