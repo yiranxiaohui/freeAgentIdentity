@@ -91,15 +91,21 @@ class CloudflareTempEmailPool(BaseMailbox):
     def _resolve_domain(self) -> str:
         if self.domain:
             return self.domain
+        # /open_api/settings 是公开端点（不需要地址 JWT）；/api/settings 需要鉴权会 401。
         response = self.session.get(
-            self._url("/api/settings"),
+            self._url("/open_api/settings"),
             proxies=self.proxy,
             timeout=self.request_timeout,
         )
         response.raise_for_status()
         payload = response.json() or {}
-        domains = [str(d or "").strip().lstrip("@").lower() for d in (payload.get("domains") or [])]
-        domains = [d for d in domains if d]
+        domains: list[str] = []
+        for item in (payload.get("domains") or []):
+            # domains 可能是字符串，也可能是 {value,label} 对象。
+            value = item.get("value") if isinstance(item, dict) else item
+            text = str(value or "").strip().lstrip("@").lower()
+            if text:
+                domains.append(text)
         if not domains:
             raise RuntimeError("cloudflare_temp_email 未返回可用域名，请在设置中填写固定域名")
         return domains[0]

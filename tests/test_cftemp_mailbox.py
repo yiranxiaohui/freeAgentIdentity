@@ -67,6 +67,17 @@ def test_get_email_creates_address_and_keeps_jwt():
     assert kwargs["json"]["domain"] == "mail.example.com"
 
 
+def test_get_email_auto_pulls_domain_from_open_settings():
+    session = FakeSession()
+    session.get_queue = [{"domains": [{"value": "auto.example.com", "label": "auto"}]}]
+    session.post_queue = [{"jwt": "j", "address": "u_x@auto.example.com"}]
+    account = _pool(session, domain="").get_email()
+
+    assert account.email.endswith("@auto.example.com")
+    # 必须用公开端点 /open_api/settings，而不是需要鉴权的 /api/settings。
+    assert session.calls[0][1].endswith("/open_api/settings")
+
+
 def test_wait_for_code_extracts_client_side_with_bearer():
     session = FakeSession()
     session.post_queue = [{"jwt": "jwt-1", "address": "u_a@mail.example.com"}]

@@ -215,9 +215,9 @@ _BUILTIN_DEFINITIONS: list[dict] = [
             {
                 "key": "cftemp_domain",
                 "label": "邮箱域名",
-                "placeholder": "留空则自动取 /api/settings 的第一个域名",
+                "placeholder": "留空则自动取 /open_api/settings 的第一个域名",
                 "category": "connection",
-                "hint": "可选。填了就用这个域名建地址；留空则自动拉取实例已配置的域名。",
+                "hint": "可选。填了就用这个域名建地址；留空则自动拉取实例已配置的域名（/open_api/settings）。",
             },
             {
                 "key": "cftemp_email_prefix",
